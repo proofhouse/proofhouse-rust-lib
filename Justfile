@@ -38,6 +38,53 @@ default: test
 build:
     cargo build --release
 
+# Check that release builds are reproducible. Copy the working tree
+# (minus .git and target, so the untracked Cargo.lock still rides
+# along) into a temp dir, build it, record the rlib's sha256, run
+# `cargo clean`, build a second time, and compare — failing on any
+# mismatch.
+#
+# This is a same-dir double build, not the build-from-two-paths check
+# the binary sibling can use. An rlib carries its crate metadata, and
+# that metadata records source paths which --remap-path-scope=object
+# leaves alone: the scope confines path rewriting to emitted objects,
+# which is what keeps a final binary path-independent but also means
+# two builds of this library from different directories embed different
+# paths and never match, byte-identical source or not — the workspace
+# path-hashing caveat, cargo#13586. Holding the directory fixed is the
+# way to isolate genuine nondeterminism (timestamps, map iteration,
+# codegen ordering) from that path noise until the caveat is resolved.
+#
+# The remap flags still run so object code stays path-independent for
+# parity with the binary crate; --remap-path-scope=object is stable
+# since 1.95, and cargo's trim-paths profile key would subsume these
+# flags once it leaves nightly (cargo#12137). The library embeds no
+# git-derived data, so excluding .git only trims the copy.
+# SOURCE_DATE_EPOCH is exported for parity with the sibling repos;
+# rustc ignores it on Linux and macOS today, so it only guards against
+# future timestamp stamping.
+[script]
+build-repro-check:
+    work=$(mktemp -d)
+    trap 'rm -rf "$work"' EXIT
+    rsync -a --exclude=.git --exclude=target "$PWD"/ "$work"/
+    cd "$work"
+    build() {
+        RUSTFLAGS="--remap-path-prefix=$PWD=/build --remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo --remap-path-scope=object" \
+        CARGO_INCREMENTAL=0 SOURCE_DATE_EPOCH={{ source_date_epoch }} \
+        cargo build --release --locked
+    }
+    build
+    sum_a=$(shasum -a 256 < target/release/libproofhouse_rust_lib.rlib)
+    cargo clean
+    build
+    sum_b=$(shasum -a 256 < target/release/libproofhouse_rust_lib.rlib)
+    if [[ "${sum_a%% *}" != "${sum_b%% *}" ]]; then
+        echo "build not reproducible: rlib differs between runs" >&2
+        exit 1
+    fi
+    echo "reproducible: ${sum_a%% *}"
+
 # --- Test ---
 
 # Run the test suite. Trailing arguments pass through to cargo test, so
