@@ -99,6 +99,18 @@ test *args:
 test-doc:
     cargo test --doc
 
+# --- Dependencies ---
+
+# Check that Cargo.lock is in sync with the manifests. Under the locked
+# flag `cargo metadata` reads the dependency graph without refreshing
+# the lock, so a missing or stale Cargo.lock makes it fail rather than
+# silently re-resolve. The `cargo update` variants are the wrong tool:
+# they report any upgrade the registry offers, not whether the committed
+# lock still matches Cargo.toml. CI runs this on every PR; contributors
+# regenerate the lock and commit the result.
+lock-check:
+    cargo metadata --locked --format-version 1 > /dev/null
+
 # --- Clean ---
 
 # Remove the target/ build tree.
