@@ -1,0 +1,20 @@
+[package]
+name = "proofhouse-rust-lib"
+description = "Reference library for the Proofhouse Rust lib reference repository"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[workspace]
+members = ["xtask"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.96"
+authors = ["Tony Burns <tony@tonyburns.net>"]
+license = "Apache-2.0"
+publish = false
