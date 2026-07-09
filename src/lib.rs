@@ -3,6 +3,10 @@
 
 //! Reference library for the Proofhouse Rust lib reference repository.
 
+pub mod errors;
+pub mod lexer;
+pub mod tokens;
+
 /// Returns the crate version, resolved at compile time from the package
 /// manifest so it always tracks the version `Cargo.toml` declares.
 #[must_use]
