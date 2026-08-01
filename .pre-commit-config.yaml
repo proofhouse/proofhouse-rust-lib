@@ -126,6 +126,18 @@ repos:
         stages: [pre-push]
         pass_filenames: false
 
+      # A dependency enters through a manifest, so that is the file this
+      # hook watches. Deleting the last use of a crate can strand one
+      # too, but paying for a scan on every source edit to catch the
+      # rarer direction is a poor trade when the merge path reads the
+      # whole tree anyway.
+      - id: cargo-machete
+        name: cargo-machete
+        entry: just lint-machete
+        language: system
+        files: (^|/)Cargo\.toml$
+        pass_filenames: false
+
       # Tree-wide .editorconfig enforcement. No types or files filter:
       # the gate spans every tracked file, so a newly added config or
       # fixture with CRLF endings or a missing final newline has to trip

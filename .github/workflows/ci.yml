@@ -95,10 +95,24 @@ jobs:
       - name: Install Homebrew dependencies
         run: brew bundle install
 
+      # No Homebrew formula packages cargo-machete, so this step fetches
+      # a prebuilt binary rather than spending a compile on it. The
+      # action checks the download against the publisher's checksum and
+      # build attestation on its own. The version sits beside a marker
+      # comment Renovate reads, since nothing in its stock managers knows
+      # how to find a crate name inside a workflow input.
+      - name: Install cargo tools
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        with:
+          # renovate: datasource=crate depName=cargo-machete
+          tool: cargo-machete@0.9.2
+
       # Vale's style packages are downloaded, not vendored, so
-      # `lint-prose` fails on a bare checkout without this.
+      # `lint-prose` fails on a bare checkout without this. The narrower
+      # recipe rather than `install-tools`, whose other half installs a
+      # floating cargo build of the tool the step above just pinned.
       - name: Sync Vale styles
-        run: just install-tools
+        run: just vale-sync
 
       - name: Run lint gates
         run: just lint
