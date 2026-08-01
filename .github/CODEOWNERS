@@ -1,0 +1,22 @@
+# Review routing for proofhouse-rust-lib. GitHub applies the last
+# matching rule, so the supply-chain rules below override the default
+# for the paths they name. Owners are org teams (sole member @tbhb for
+# now) created with push access, the minimum GitHub requires for a team
+# to count as a code owner.
+
+# Default owner for everything.
+*             @proofhouse/maintainers
+
+# Supply-chain and CI surface. The /.github/ rule already covers
+# renovate.json5 and every workflow, so neither needs its own line. The
+# Cargo.toml rule is unanchored on purpose: the workspace resolves one
+# lock file from every member manifest, so xtask/Cargo.toml routes here
+# alongside the root one.
+/.github/     @proofhouse/security
+Cargo.toml    @proofhouse/security
+/Cargo.lock   @proofhouse/security
+
+# Release-pipeline ownership (@proofhouse/release-engineering) lands
+# with the release workflow. That file does not exist yet, so a rule
+# here would point at nothing and fail the path-existence gate; it
+# arrives alongside the release pipeline.

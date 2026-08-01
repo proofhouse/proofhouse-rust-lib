@@ -1,0 +1,29 @@
+---
+# Validate `.github/CODEOWNERS` on every pull request, delegated to the
+# shared reusable workflow in proofhouse/github-actions so this repo
+# never carries the validator steps itself. The reusable workflow reads
+# this caller's context — GITHUB_REPOSITORY and the PR head SHA — so it
+# validates the CODEOWNERS file that arrives in this very PR. The two
+# checks (owners/syntax via GitHub's codeowners/errors endpoint, and
+# rule-path existence via a tree walk) need only the default read-only
+# token, so this caller passes no secrets. The '**' path filter keeps
+# the gate running on every PR, so a deletion anywhere re-triggers it
+# and it can stay required.
+name: lint-codeowners
+
+on:
+  pull_request:
+    paths:
+      - .github/CODEOWNERS
+      - '**'
+
+permissions:
+  contents: read
+
+jobs:
+  lint-codeowners:
+    name: lint-codeowners
+    permissions:
+      contents: read
+    # yamllint disable-line rule:line-length
+    uses: proofhouse/github-actions/.github/workflows/lint-codeowners.yml@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
