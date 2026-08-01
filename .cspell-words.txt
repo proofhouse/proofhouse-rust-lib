@@ -6,6 +6,7 @@ buildmeta
 cocogitto
 codegen
 commitlint
+doctest
 doctests
 EDITMSG
 GOPATH
@@ -26,6 +27,7 @@ pyproject
 rhysd
 rlib
 rumdl
+RUSTDOCFLAGS
 RUSTFLAGS
 sandboxed
 shellcheck
