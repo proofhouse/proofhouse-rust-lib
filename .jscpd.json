@@ -1,0 +1,6 @@
+{
+  "formats": ["rust"],
+  "minTokens": 50,
+  "threshold": 0,
+  "ignore": ["target/**", "tmp/**"]
+}

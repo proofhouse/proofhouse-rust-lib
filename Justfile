@@ -192,14 +192,14 @@ lock-check:
 
 # Aggregator over the Rust-flavored lint sub-recipes: the rustfmt drift
 # check, clippy across every lint group, the documentation render, the
-# unused-dependency scan, and actionlint over the workflow files. Carved
-# out so a contributor working on the crate can rerun the
-# compiler-adjacent gates without paying for the whole text-quality
-# toolchain; each new Rust gate appends itself here. actionlint rides
-# along even though it reads YAML rather than Rust — it belongs to the
-# same per-pull-request gate set, and the sibling repos give it the same
-# slot.
-lint-rs-all: lint-rs-format lint-clippy lint-docs lint-machete lint-workflows
+# unused-dependency scan, the clone detector, and actionlint over the
+# workflow files. Carved out so a contributor working on the crate can
+# rerun the compiler-adjacent gates without paying for the whole
+# text-quality toolchain; each new Rust gate appends itself here.
+# actionlint rides along even though it reads YAML rather than Rust —
+# it belongs to the same per-pull-request gate set, and the sibling
+# repos give it the same slot.
+lint-rs-all: lint-rs-format lint-clippy lint-docs lint-machete lint-dup-code lint-workflows
 
 # Aggregate lint gate. Every checker the repo gains hangs off this one
 # recipe, so there is a single command to run them all. The Rust gates
@@ -245,6 +245,21 @@ lint-docs:
 # rewriting Cargo.lock from under a read-only gate, so it stays off.
 lint-machete:
     cargo machete
+
+# Hunt for copy-pasted Rust. jscpd compares token streams rather than
+# lines, so a clone stays visible after its bindings are renamed and
+# its braces moved around. Settings live in .jscpd.json. Fifty tokens
+# is the shortest run it will call a clone, which is upstream's own
+# default written down so a change to it lands as a visible diff, and
+# the zero percent ceiling turns one clone into a failed run — with a
+# detector this coarse, anything it reports is worth a human deciding
+# about. The scan is confined to Rust because that is the code under
+# review here; pointed at the whole tree it also reads .vale.ini and
+# the workflow files, whose repeated stanzas are how those formats are
+# written rather than something to factor out. The flag drops the
+# donation and product notices the tool prints once it is done.
+lint-dup-code:
+    jscpd --no-tips .
 
 # Lint prose in Markdown files and source comments via vale. The glob
 # drops the LICENSE (canonical Apache 2.0 text), the generated

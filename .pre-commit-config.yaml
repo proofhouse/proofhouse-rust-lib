@@ -138,6 +138,17 @@ repos:
         files: (^|/)Cargo\.toml$
         pass_filenames: false
 
+      # A clone takes two files to exist, so the staged set is the wrong
+      # scope and the recipe reads the tree instead. The types filter
+      # earns its place anyway, keeping the scan off commits that carry
+      # no Rust at all.
+      - id: jscpd
+        name: jscpd
+        entry: just lint-dup-code
+        language: system
+        types: [rust]
+        pass_filenames: false
+
       # Tree-wide .editorconfig enforcement. No types or files filter:
       # the gate spans every tracked file, so a newly added config or
       # fixture with CRLF endings or a missing final newline has to trip

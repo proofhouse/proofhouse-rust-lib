@@ -158,3 +158,4 @@ editorconfig
 [Ee]num[s]?
 [Ss]uppression[s]?
 [Rr]ustdoc
+jscpd

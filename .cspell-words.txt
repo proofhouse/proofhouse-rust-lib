@@ -11,6 +11,7 @@ doctests
 EDITMSG
 GOPATH
 hardwrap
+jscpd
 libproofhouse
 linuxbrew
 lockfiles
