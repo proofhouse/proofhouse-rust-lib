@@ -1,9 +1,10 @@
 // Layer contract for the expression pipeline, read top to bottom: the
-// parser runs the whole conversion, the syntax tree is what it hands
-// back, the lexer feeds it, tokens are what the lexer emits, and errors
-// sit beneath all of them because any stage may fail. A module may
-// reach downward and nowhere else, so each entry lists the layers open
-// to it and every other crate path is refused.
+// evaluator reduces a tree to a value, the parser runs the conversion
+// that produces one, the syntax tree is what it hands back, the lexer
+// feeds it, tokens are what the lexer emits, and errors sit beneath all
+// of them because any stage may fail. A module may reach downward and
+// nowhere else, so each entry lists the layers open to it and every
+// other crate path is refused.
 //
 // Naming what is open rather than what is shut is what makes this file
 // carry cycle-freedom between the layers: every crate-internal import
@@ -27,11 +28,32 @@
 //
 // A module with no entry here is not under the promise above, but
 // nothing that is may import it, so it stays a leaf until someone
-// writes its layer down. An evaluator and a formatter arrive over the
-// parser as two leaves that may not see each other, and the test helper
-// module lands with a rule keeping every stage out of it.
+// writes its layer down. The evaluator is the first arrival over the
+// parser and the top of the order for now. A formatter joins it there
+// as a second consumer neither of them may see the other from, and the
+// test helper module lands with a rule keeping every stage out of it.
 (
     lints: [
+        Module((
+            name: "evaluator_over_the_parser",
+            matches: Module("^proofhouse_rust_lib::evaluator(::|$)"),
+            rules: [
+                // Reducing a tree to a number takes the node types, a
+                // way to get a tree out of text, and the failures
+                // either step reports. Nothing above the parser is in
+                // reach, which is what will keep this module and the
+                // formatter apart once the second one is written.
+                RestrictImports(
+                    allowed_only: Some([
+                        "^(crate|proofhouse_rust_lib)::(ast|parser|errors)(::|$)",
+                        "^std(::|$)",
+                        "^$",
+                    ]),
+                    denied: None,
+                    severity: Error,
+                ),
+            ],
+        )),
         Module((
             name: "parser_above_everything",
             matches: Module("^proofhouse_rust_lib::parser(::|$)"),
