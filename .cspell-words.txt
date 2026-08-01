@@ -20,3 +20,4 @@ tombi
 venv
 worktrees
 xtask
+yamllintignore

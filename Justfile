@@ -119,8 +119,8 @@ lock-check:
 
 # Aggregate lint gate. Every checker the repo gains hangs off this one
 # recipe, so there is a single command to run them all. Prose, spelling,
-# Markdown, JSON, and TOML are its members today.
-lint: lint-prose lint-spelling lint-markdown lint-config lint-toml
+# Markdown, JSON, YAML, and TOML are its members today.
+lint: lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml
 
 # Lint prose in Markdown files and source comments via vale. The glob
 # drops the LICENSE (canonical Apache 2.0 text), the generated
@@ -155,6 +155,12 @@ lint-markdown *args:
 # any future scripts under .github/actions/.
 lint-config *args:
     biome check --files-ignore-unknown=true {{ if args == "" { "." } else { args } }}
+
+# Lint YAML files (config, workflows, action definitions). --strict
+# treats warnings as errors so the gate matches CI behavior; per-rule
+# tuning lives in .yamllint.yaml.
+lint-yaml *args:
+    yamllint --strict {{ if args == "" { "." } else { args } }}
 
 # tombi is the org TOML gate (tombi 1.2.0): lint-checks Cargo.toml (validated offline
 # against the embedded SchemaStore cargo.json), rust-toolchain.toml, .cargo/config.toml,
