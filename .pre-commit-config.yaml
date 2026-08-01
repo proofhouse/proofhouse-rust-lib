@@ -91,6 +91,30 @@ repos:
         types: [toml]
         pass_filenames: false
 
+      # Tree-wide .editorconfig enforcement. No types or files filter:
+      # the gate spans every tracked file, so a newly added config or
+      # fixture with CRLF endings or a missing final newline has to trip
+      # it. editorconfig-checker resolves its own file set from git, so
+      # pass_filenames stays off; the top-level `exclude:` above is
+      # mirrored in .editorconfig-checker.json's Exclude list.
+      - id: editorconfig-checker
+        name: editorconfig-checker
+        entry: just lint-editorconfig
+        language: system
+        pass_filenames: false
+
+      # The Justfile is the definition every other hook here delegates
+      # to, so it gets a formatting gate of its own. files: pins the
+      # hook to that one path — just --fmt reads the justfile it
+      # resolves, not a passed file list, so pass_filenames is off and
+      # the recipe would otherwise fire on every commit.
+      - id: just-fmt
+        name: just --fmt check
+        entry: just lint-just
+        language: system
+        files: ^Justfile$
+        pass_filenames: false
+
       # The lock file resolves the whole workspace, so the xtask
       # manifest has to trigger this as well as the root one; the
       # pattern matches any Cargo.toml, not just the anchored root

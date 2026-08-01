@@ -1,5 +1,5 @@
-set unstable := true
-set positional-arguments := true
+set unstable
+set positional-arguments
 
 # Run [script] recipes under bash rather than the default sh. On Linux
 # sh is dash, which lacks [[ ]], <<<, and set -o pipefail — constructs
@@ -185,8 +185,9 @@ lock-check:
 
 # Aggregate lint gate. Every checker the repo gains hangs off this one
 # recipe, so there is a single command to run them all. Prose, spelling,
-# Markdown, JSON, YAML, and TOML are its members today.
-lint: lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml
+# Markdown, JSON, YAML, TOML, this file's own layout, and the
+# whitespace baseline are its members today.
+lint: lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml lint-just lint-editorconfig
 
 # Lint prose in Markdown files and source comments via vale. The glob
 # drops the LICENSE (canonical Apache 2.0 text), the generated
@@ -238,6 +239,32 @@ lint-toml:
     tombi format --check --diff
     tombi lint --offline --error-on-warnings
 
+# Check that just's own formatter would change nothing in this Justfile.
+# Read-only twin of `format-just`; run that to apply the rewrite. The
+# build tool that every other gate is invoked through was itself the one
+# file no gate read, so this closes that loop. See `format-just` for why
+# --unstable is spelled out on the command line.
+lint-just:
+    just --fmt --check --unstable
+
+# Check every tracked file against the rules in .editorconfig — charset,
+# line endings, final newline, trailing whitespace, indent style and
+# size. The other gates each own one language; this one holds the
+# baseline that spans all of them, including the file types no linter in
+# the set reads (.gitattributes, .gitignore, the Brewfile, CODEOWNERS).
+# Scope and behavior come from .editorconfig-checker.json, whose Exclude
+# list mirrors the top-level `exclude:` in .pre-commit-config.yaml so the
+# hook and the recipe judge the same files, plus CHANGELOG.md, which
+# `cog changelog` regenerates wholesale and leaves without a final
+# newline every release — the vale hook and the prose recipes already
+# skip it for that reason. The tool's own default excludes drop
+# Cargo.lock and the binary formats on top of that. Upstream's release
+# archives also carry a short `ec` alias, but the Homebrew formula this
+# repo provisions from builds the long name only, so the recipe spells
+# it out.
+lint-editorconfig:
+    editorconfig-checker
+
 # Lint GitHub Actions workflow files via actionlint. actionlint walks
 # `.github/workflows/` by default, parses each workflow, and flags
 # unknown actions, mis-typed expressions, shellcheck issues inside
@@ -265,9 +292,9 @@ lint-commit-msg:
 
 # --- Format ---
 
-# Aggregate in-place formatter. Grows per gate; carries the Markdown, JSON, and
-# TOML fixers today.
-format: format-markdown format-config format-toml
+# Aggregate in-place formatter. Grows per gate; carries the Markdown, JSON,
+# TOML, and Justfile fixers today.
+format: format-markdown format-config format-toml format-just
 
 # Format Markdown files (whitespace, list markers, code fence styles).
 # Rewrites in place. Pair with `fix-markdown` for semantic lint fixes.
@@ -282,6 +309,16 @@ format-config *args:
 # only; key order preserved (reordering disabled in tombi.toml).
 format-toml:
     tombi format
+
+# Rewrite this Justfile in just's canonical formatting. Read-only twin
+# is `lint-just`. --unstable is required because `--fmt` is still gated
+# behind just's unstable flag; the `set unstable` at the top of the file
+# governs recipe attributes, not command-line subcommands, so the flag
+# has to be passed here as well. Adopting the gate cost a single
+# rewrite: the two boolean settings opening the file gave up their
+# `:= true` tails for the bare shorthand the formatter emits.
+format-just:
+    just --fmt --unstable
 
 # --- Fix ---
 
