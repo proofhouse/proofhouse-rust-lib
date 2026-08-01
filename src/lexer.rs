@@ -8,15 +8,15 @@ use crate::tokens::{Token, TokenKind};
 
 /// Split expression text into tokens.
 ///
-/// Whitespace separates tokens and is otherwise skipped. A maximal run of
-/// decimal digits becomes one [`TokenKind::Number`]; each of the six
-/// operator and parenthesis characters maps to its own kind. Empty or
-/// whitespace-only input yields an empty vector.
+/// Whitespace separates tokens and means nothing on its own. A maximal
+/// run of decimal digits becomes one [`TokenKind::Number`], and each of
+/// the six operator and parenthesis characters maps to its own kind.
+/// Empty or whitespace-only input yields an empty vector.
 ///
 /// # Errors
 ///
 /// Returns a [`LexError`] naming the byte offset and the character when the
-/// input holds anything that cannot begin a token.
+/// input holds anything that can't begin a token.
 pub fn tokenize(text: &str) -> Result<Vec<Token>, LexError> {
     let mut tokens = Vec::new();
     let mut chars = text.char_indices().peekable();
@@ -145,9 +145,9 @@ mod tests {
             ("a", 0, 'a'),
             ("12 $ 3", 3, '$'),
             ("1.5", 1, '.'),
-            // The two-byte no-break space is whitespace and is skipped, so the
-            // three-byte '€' lands at byte offset 2 even though it is only the
-            // second character: the offset is a byte index, not a char index.
+            // The two-byte no-break space counts as whitespace, so the
+            // three-byte '€' lands at byte offset 2 while standing second
+            // in the string. Offsets count bytes, never characters.
             ("\u{a0}\u{20ac}", 2, '\u{20ac}'),
         ];
         for &(input, offset, character) in cases {

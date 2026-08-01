@@ -3,3 +3,13 @@ tmp/
 COMMIT_AGENTMSG
 mutants.out*/
 lcov.info
+
+# Vale synced packages (keep the vocabulary).
+# Each negation needs the parent un-ignored first — git can't re-include
+# a child whose ancestor directory stays excluded.
+.vale/*
+!.vale/config/
+.vale/config/*
+!.vale/config/vocabularies/
+.vale/config/vocabularies/*
+!.vale/config/vocabularies/proofhouse/

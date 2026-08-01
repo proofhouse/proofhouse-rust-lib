@@ -34,9 +34,13 @@ default: test
 
 # --- Build ---
 
-# Build the library in release mode.
+# Build the library in release mode
 build:
     cargo build --release
+
+# Remove the target/ build tree
+clean:
+    cargo clean
 
 # Check that release builds are reproducible. Copy the working tree
 # (minus .git and target, so the untracked Cargo.lock still rides
@@ -114,9 +118,21 @@ lock-check:
 # --- Lint ---
 
 # Aggregate lint gate. Every checker the repo gains hangs off this one
-# recipe, so there is a single command to run them all. The TOML gate
-# is its only member today.
-lint: lint-toml
+# recipe, so there is a single command to run them all. Prose and TOML
+# are its members today.
+lint: lint-prose lint-toml
+
+# Lint prose in Markdown files and source comments via vale. The glob
+# drops the LICENSE (canonical Apache 2.0 text), the generated
+# changelog, vale's own synced style packages, scratch dirs, the
+# gitignored agent worktrees under .claude/worktrees/, the
+# COMMIT_AGENTMSG draft (.vale.ini judges a commit message under its
+# own stricter scope), and the cargo build tree; the per-file-type
+# rules in .vale.ini decide what else gets inspected. Findings render
+# through the proofhouse-agent template from the proofhouse package:
+# one machine-parseable line per finding.
+lint-prose *args:
+    vale --output=proofhouse-agent.tmpl --glob='!{LICENSE,CHANGELOG.md,.vale/*,tmp/*,.claude/worktrees/*,COMMIT_AGENTMSG,target/*}' {{ if args == "" { "." } else { args } }}
 
 # tombi is the org TOML gate (tombi 1.2.0): lint-checks Cargo.toml (validated offline
 # against the embedded SchemaStore cargo.json), rust-toolchain.toml, .cargo/config.toml,
@@ -138,8 +154,10 @@ format: format-toml
 format-toml:
     tombi format
 
-# --- Clean ---
+# --- Utilities ---
 
-# Remove the target/ build tree.
-clean:
-    cargo clean
+# Sync Vale styles and dictionaries. Run once after cloning the repo,
+# and whenever .vale.ini's Packages list changes. CI runs this before
+# `just lint-prose`.
+vale-sync:
+    vale sync

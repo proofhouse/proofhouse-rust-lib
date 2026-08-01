@@ -6,12 +6,12 @@
 use std::error::Error;
 use std::fmt;
 
-/// A character the lexer cannot turn into a token, with where it was found.
+/// A character the lexer can't turn into a token, and its position.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LexError {
     /// Byte offset of the offending character within the source text.
     pub offset: usize,
-    /// The character that could not begin a token.
+    /// The character that couldn't begin a token.
     pub character: char,
 }
 
@@ -29,11 +29,11 @@ impl Error for LexError {}
 
 /// Any error raised while turning expression text into a result.
 ///
-/// Only lexing can fail today; parsing and evaluation add their own
+/// Only lexing can fail today. Parsing and evaluation add their own
 /// variants as those stages land, so a caller has one type to match on.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExpressionError {
-    /// The lexer met a character it could not tokenize.
+    /// The lexer met a character it couldn't tokenize.
     Lex(LexError),
 }
 
