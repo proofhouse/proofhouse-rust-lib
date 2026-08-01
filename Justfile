@@ -111,6 +111,33 @@ test-doc:
 lock-check:
     cargo metadata --locked --format-version 1 > /dev/null
 
+# --- Lint ---
+
+# Aggregate lint gate. Every checker the repo gains hangs off this one
+# recipe, so there is a single command to run them all. The TOML gate
+# is its only member today.
+lint: lint-toml
+
+# tombi is the org TOML gate (tombi 1.2.0): lint-checks Cargo.toml (validated offline
+# against the embedded SchemaStore cargo.json), rust-toolchain.toml, .cargo/config.toml,
+# and workspace member manifests. Format gate runs in --check --diff so unformatted TOML
+# fails without rewrite. Cargo.lock is excluded from formatting via tombi.toml. --offline
+# keeps CI hermetic; --error-on-warnings makes warnings hard failures. Scope lives in
+# tombi.toml, so no path args are passed.
+lint-toml:
+    tombi format --check --diff
+    tombi lint --offline --error-on-warnings
+
+# --- Format ---
+
+# Aggregate in-place formatter. Grows per gate; carries the TOML fixer today.
+format: format-toml
+
+# In-place TOML formatter — fixer paired with lint-toml's --check gate. Whitespace/style
+# only; key order preserved (reordering disabled in tombi.toml).
+format-toml:
+    tombi format
+
 # --- Clean ---
 
 # Remove the target/ build tree.
