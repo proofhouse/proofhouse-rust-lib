@@ -4,11 +4,14 @@
 //! Reference library for the Proofhouse Rust lib reference repository.
 
 pub mod ast;
+pub mod cache;
 pub mod errors;
 pub mod evaluator;
 pub mod formatter;
 pub mod lexer;
 pub mod parser;
+pub mod sync;
+mod sync_shim;
 pub mod tokens;
 
 /// Returns the crate version, resolved at compile time from the package

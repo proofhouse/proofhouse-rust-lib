@@ -7,6 +7,15 @@
 // nowhere else, so each entry lists the layers open to it and every
 // other crate path is refused.
 //
+// Two layers stand over that pipeline and two off to the side. A table
+// of values already worked out needs the evaluator to fill an entry
+// and the formatter to name one, which puts it over both; the driver
+// that hands subtrees to worker threads needs the table, which puts it
+// over that. To the side sit the cell an entry is made of and the
+// module naming the primitives the cell is built from, neither of
+// which reaches into the pipeline at all, so they sit as low as the
+// errors do.
+//
 // Naming what is open rather than what is shut is what makes this file
 // carry cycle-freedom between the layers: every crate-internal import
 // points down the order, and a set of modules whose edges all point one
@@ -25,11 +34,13 @@
 // name inside those braces arrives on its own and spelled out in full,
 // which is where the reading happens. Each entry covers the module's
 // submodules along with the file itself, a reach being a reach whatever
-// depth it is written at.
+// depth it is written at. The evaluator is the exception, its one
+// submodule standing a layer above it and answering to a rule of its
+// own, so the pattern there stops at the file.
 //
 // A module with no entry here is not under the promise above, but
 // nothing that is may import it, so it stays a leaf until someone
-// writes its layer down. Two modules share the top of the order: one
+// writes its layer down. Two modules share one rung of the order: one
 // reduces a tree to a value and one spells the same tree back out.
 // Their lists are the same list and neither one appears in it, which
 // is how the file says the readings are independent. A test helper
@@ -37,14 +48,59 @@
 (
     lints: [
         Module((
+            name: "driver_above_the_table",
+            matches: Module("^proofhouse_rust_lib::evaluator::concurrent(::|$)"),
+            rules: [
+                // Splitting a tree across threads takes the node types
+                // to walk, the table the threads meet in, the step
+                // that joins two operand values under an operator, and
+                // the failures any of that reports. The table is the
+                // reason this sits at the top: whoever holds it holds
+                // everything under it.
+                RestrictImports(
+                    allowed_only: Some([
+                        "^(crate|proofhouse_rust_lib)::(ast|cache|errors|evaluator|parser)(::|$)",
+                        "^std(::|$)",
+                        "^$",
+                    ]),
+                    denied: None,
+                    severity: Error,
+                ),
+            ],
+        )),
+        Module((
+            name: "table_above_both_readings",
+            matches: Module("^proofhouse_rust_lib::cache(::|$)"),
+            rules: [
+                // A key is a rendering and a value is a reduction, so
+                // filling one entry takes both readings of a tree and
+                // the table stands over the pair. The cell holding an
+                // entry and the primitives behind the cell are open to
+                // it as well, those sitting beside the errors rather
+                // than anywhere in the pipeline.
+                RestrictImports(
+                    allowed_only: Some([
+                        "^(crate|proofhouse_rust_lib)::(ast|errors|evaluator|formatter|parser)(::|$)",
+                        "^(crate|proofhouse_rust_lib)::(sync|sync_shim)(::|$)",
+                        "^std(::|$)",
+                        "^$",
+                    ]),
+                    denied: None,
+                    severity: Error,
+                ),
+            ],
+        )),
+        Module((
             name: "evaluator_over_the_parser",
-            matches: Module("^proofhouse_rust_lib::evaluator(::|$)"),
+            matches: Module("^proofhouse_rust_lib::evaluator$"),
             rules: [
                 // Reducing a tree to a number takes the node types, a
                 // way to get a tree out of text, and the failures
                 // either step reports. Nothing above the parser is in
                 // reach, and the formatter stands above the parser, so
-                // no path from here arrives at a rendering.
+                // no path from here arrives at a rendering. The table
+                // is out of reach for the same reason read the other
+                // way round: it is the table that calls this module.
                 RestrictImports(
                     allowed_only: Some([
                         "^(crate|proofhouse_rust_lib)::(ast|parser|errors)(::|$)",
@@ -152,6 +208,46 @@
                     allowed_only: Some([
                         "^(crate|proofhouse_rust_lib)::errors(::|$)",
                         "^std(::|$)",
+                        "^$",
+                    ]),
+                    denied: None,
+                    severity: Error,
+                ),
+            ],
+        )),
+        Module((
+            name: "cell_beside_the_errors",
+            matches: Module("^proofhouse_rust_lib::sync(::|$)"),
+            rules: [
+                // Publishing one value to whoever asks knows nothing
+                // about expressions and never will: it holds a `T`.
+                // The primitives it is built from are the one crate
+                // path open to it, which is what leaves the cell
+                // usable from any layer without carrying one along.
+                RestrictImports(
+                    allowed_only: Some([
+                        "^(crate|proofhouse_rust_lib)::sync_shim(::|$)",
+                        "^std(::|$)",
+                        "^$",
+                    ]),
+                    denied: None,
+                    severity: Error,
+                ),
+            ],
+        )),
+        Module((
+            name: "primitives_below_the_cell",
+            matches: Module("^proofhouse_rust_lib::sync_shim(::|$)"),
+            rules: [
+                // Naming a lock and an atomic is the whole of the job,
+                // and the two places those names come from are the
+                // standard library and the model runner that stands in
+                // for it. A crate path here would put this module
+                // above something, and the point of it is to sit under
+                // everything that synchronizes.
+                RestrictImports(
+                    allowed_only: Some([
+                        "^(std|loom)(::|$)",
                         "^$",
                     ]),
                     denied: None,

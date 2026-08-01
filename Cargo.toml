@@ -10,6 +10,13 @@ publish.workspace = true
 [lints]
 workspace = true
 
+# loom stands in for the standard library's threads and atomics when the
+# interleaving models run, and for nothing else: the dependency is
+# selected by a cfg no ordinary build sets, so a release of this library
+# resolves without it. `just test-loom` is what turns the cfg on.
+[target."cfg(loom)".dependencies]
+loom = "0.7"
+
 [workspace]
 members = ["xtask"]
 
@@ -33,6 +40,12 @@ publish = false
 dead_code = "deny"
 missing_docs = "deny"
 unreachable_pub = "deny"
+# A `cfg` the build never sets is usually a typo, and the compiler says
+# so for every name it has not been told about. `loom` is the one name
+# this workspace sets by hand, from the recipe that runs the
+# interleaving models; declaring it here is what keeps the warning
+# pointed at the typos.
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(loom)"] }
 
 # Every clippy group at once, restriction included, each sitting at
 # priority -1 so the individual entries further down win. The sibling
@@ -93,6 +106,17 @@ std_instead_of_core = "allow"
 std_instead_of_alloc = "allow"
 # Penalizes splitting a readable helper out of its one caller.
 single_call_fn = "allow"
+# The restriction group holds both spellings of a crate-wide
+# visibility marker and objects to whichever one a file picks. The
+# short form is what the sibling repositories write, so the rule
+# calling for the long one is the rule turned off.
+pub_with_shorthand = "allow"
+# The restriction group holds both module-layout rules, and a module
+# with children answers to one of them whichever layout it picks. Every
+# file here is named for the module it holds, so the rule asking for
+# `mod.rs` files is the one turned off and `mod_module_files` stays on
+# to hold the tree to that shape.
+self_named_module_files = "allow"
 
 # Rustdoc's own diagnostics, raised past the warning level most of them
 # ship at. Each one marks documentation that still renders and still

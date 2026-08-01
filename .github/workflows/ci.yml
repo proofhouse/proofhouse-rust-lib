@@ -264,3 +264,48 @@ jobs:
       # because `cargo test` and `cargo test --doc` cover disjoint sets.
       - name: Run doctests
         run: just test-doc
+
+  # Replays the concurrency layer under every thread interleaving loom
+  # can reach, which is a different detector from the matrix above
+  # rather than more of it: the suite reports what one ordering does
+  # and this reports what the worst ordering does. A publication read
+  # too weakly, or two threads computing one entry, shows up here and
+  # nowhere else. One Linux slot on the pinned toolchain is enough,
+  # since the search reads the memory model and not the platform, and
+  # the models are small enough for the whole replay to take seconds.
+  loom:
+    name: loom
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Reads rust-toolchain.toml like every other job here: the models
+      # are ordinary safe code and run on the shipping compiler.
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          cache: false
+
+      # Restores on every run and writes back from `main` alone, as
+      # the jobs above do. The cache key carries the job name, and the
+      # cfg the recipe sets changes every compilation fingerprint, so
+      # what lands here is a build of its own rather than a second copy
+      # of the matrix job's.
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Set up just
+        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+
+      - name: Run the interleaving models
+        run: just test-loom

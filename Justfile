@@ -190,6 +190,28 @@ test *args:
 test-doc:
     cargo test --doc
 
+# Replay the concurrency models under loom, which reruns each model
+# once per ordering the memory model allows its threads and atomics and
+# stops at the first replay that breaks an assertion. The cfg flag is
+# what swaps the standard library's primitives for loom's recording
+# ones, so the models compile to nothing without it and an ordinary
+# `just test` walks past the file.
+#
+# What that search reads is publication order: whether a thread can see
+# the ready flag of a cell ahead of the writes the flag announces, and
+# whether two threads racing for one key can run its computation twice.
+# A test suite cannot ask either question, since both depend on an
+# ordering a single run happens not to take.
+#
+# Each switch point multiplies the orderings left to try, so the bound
+# on preemptions is what keeps the run in seconds: three forced
+# switches per model, over models of two threads and a handful of
+# atomic accesses each. Left unbounded the same models take minutes and
+# find nothing further. That cost is why this stays a recipe the pull
+# request gate calls rather than a hook every push waits on.
+test-loom:
+    RUSTFLAGS="--cfg loom" LOOM_MAX_PREEMPTIONS=3 cargo test --test loom
+
 # --- Dependencies ---
 
 # Check that Cargo.lock is in sync with the manifests. Under the locked
