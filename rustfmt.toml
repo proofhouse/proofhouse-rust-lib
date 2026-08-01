@@ -1,0 +1,8 @@
+# Both values are what rustfmt already resolves for an edition 2024
+# crate, written down so the behavior is pinned: a later edition or a
+# toolchain bump then shows up as a diff in this file rather than as a
+# silent reformat of the whole tree. 100 columns is the width the Rust
+# community settled on, and the org sets no single number across its
+# languages.
+style_edition = "2024"
+max_width = 100
