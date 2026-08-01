@@ -32,6 +32,24 @@ source_date_epoch := `git log -1 --format=%ct 2>/dev/null || echo "0"`
 # Default recipe
 default: test
 
+# --- Setup ---
+
+# Set up development environment. New contributors run this once after
+# cloning. Idempotent: re-running upgrades dependencies and refreshes
+# Vale's synced style packages.
+setup:
+    just install-brew
+    just install-tools
+
+# Install Homebrew dependencies from Brewfile.
+install-brew:
+    brew bundle check || brew bundle install
+
+# Refresh non-brew tooling. Today that means Vale's synced style
+# packages; grows as new sync-style tools land.
+install-tools:
+    vale sync
+
 # --- Build ---
 
 # Build the library in release mode

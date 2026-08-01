@@ -1,4 +1,5 @@
 AGENTMSG
+binstall
 cocogitto
 codegen
 doctests

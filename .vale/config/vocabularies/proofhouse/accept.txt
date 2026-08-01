@@ -151,3 +151,4 @@ yamllint
 [Ll]ex(ed|ing)
 cocogitto
 CHANGELOG
+Brewfile
