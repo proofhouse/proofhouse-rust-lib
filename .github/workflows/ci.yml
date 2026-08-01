@@ -1,7 +1,8 @@
 ---
-# Main quality gate. Runs the full lint set, the Cargo.lock drift
-# check, and the test suite (matrixed across linux/macOS/windows
-# native runners) on every pull request and every push to `main`.
+# Main quality gate. Runs the full lint set, the module-structure
+# contracts, the Cargo.lock drift check, and the test suite (matrixed
+# across linux/macOS/windows native runners) on every pull request and
+# every push to `main`.
 # Each gate runs as its own job so a flake in one block does not
 # require rerunning the others and the PR status surfaces which gate
 # fired.
@@ -116,6 +117,65 @@ jobs:
 
       - name: Run lint gates
         run: just lint
+
+  # The two module-structure checkers block a merge from here rather
+  # than from the `lint` aggregator, which every other gate shares.
+  # Neither one is cheap to have around: cargo-modules is published as
+  # source only and pulls rust-analyzer's crate stack in behind it,
+  # while cargo-pup reads the compiler's own data structures and so
+  # loads only under the dated nightly it was compiled against.
+  # Answering to a second toolchain and a source build of that size is
+  # not something to ask of the job the ordinary checkers run in, so
+  # these two take a job of their own and stay just as blocking.
+  arch:
+    name: arch
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The action reads rust-toolchain.toml whatever else it is told,
+      # so naming the nightly here adds it beside the pinned stable
+      # instead of replacing it: cargo-modules builds and runs on the
+      # pin, cargo-pup on the nightly. The three components are what a
+      # compiler plugin links against. Caching belongs to the step
+      # below, as in the other jobs.
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          toolchain: nightly-2026-01-22
+          components: rust-src,rustc-dev,llvm-tools-preview
+          cache: false
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Set up just
+        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+
+      # Both binaries are compiled here because neither has a prebuilt
+      # channel to fetch from. The cache above holds ~/.cargo/bin, so a
+      # run that restores it finds both already there and cargo says as
+      # much and stops; the compile is what a cache miss costs.
+      - name: Install the module checkers
+        run: |
+          cargo install --locked cargo-modules
+          cargo +nightly-2026-01-22 install cargo_pup --locked
+
+      - name: Check for unreached modules
+        run: just lint-arch
+
+      - name: Check the layer contract
+        run: just lint-pup
 
   # Fails the merge when Cargo.lock no longer matches the manifests, so
   # every change to the dependency closure arrives as a reviewable lock

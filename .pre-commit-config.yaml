@@ -149,6 +149,23 @@ repos:
         types: [rust]
         pass_filenames: false
 
+      # Sits at pre-push beside clippy and rustdoc for a reason of its
+      # own. The run is quick, but the tool behind it has no Homebrew
+      # formula and arrives through a long source build, so a
+      # contributor who skipped `install-tools` runs into that once a
+      # push rather than once a commit. Either stage would read the
+      # whole crate regardless, an unreached file being invisible from
+      # the module that forgot to name it. The layer contract beside
+      # this recipe in the Justfile gets no hook at all, wanting a
+      # second toolchain on hand before it can answer; the merge path
+      # is where that one waits.
+      - id: cargo-modules
+        name: cargo-modules
+        entry: just lint-arch
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+
       # Tree-wide .editorconfig enforcement. No types or files filter:
       # the gate spans every tracked file, so a newly added config or
       # fixture with CRLF endings or a missing final newline has to trip

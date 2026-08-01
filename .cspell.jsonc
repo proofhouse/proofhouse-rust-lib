@@ -3,6 +3,7 @@
   "ignorePaths": [
     "**/*.log",
     ".claude/worktrees/**/*",
+    ".pup/**/*",
     ".rumdl_cache/**/*",
     ".vale/**/*",
     "Cargo.lock",

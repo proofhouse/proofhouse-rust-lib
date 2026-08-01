@@ -104,6 +104,17 @@ install-brew:
 install-tools:
     vale sync
     cargo install --locked cargo-machete
+    cargo install --locked cargo-modules
+
+# Install the layer-contract checker and the toolchain it runs under.
+# Deliberately left out of `setup`: a whole second toolchain plus the
+# compiler internals a plugin links against is a long download to hand
+# every contributor, and one gate is all that asks for it. The pull
+# request gate provisions the same pair for itself, so skipping this
+# costs nothing but a local run of `lint-pup`.
+install-pup:
+    rustup toolchain install nightly-2026-01-22 --profile minimal --component rust-src --component rustc-dev --component llvm-tools-preview
+    cargo +nightly-2026-01-22 install cargo_pup --locked
 
 # --- Build ---
 
@@ -111,9 +122,12 @@ install-tools:
 build:
     cargo build --release
 
-# Remove the target/ build tree
+# Remove the build trees. The layer checker keeps a second one beside
+# target/ because it hands cargo a directory of its own, and a stale
+# copy of that one outlives a plain `cargo clean`.
 clean:
     cargo clean
+    rm -rf .pup
 
 # Check that release builds are reproducible. Copy the working tree
 # (minus .git and target, so the untracked Cargo.lock still rides
@@ -266,12 +280,13 @@ lint-dup-code:
 # changelog, vale's own synced style packages, scratch dirs, the
 # gitignored agent worktrees under .claude/worktrees/, the
 # COMMIT_AGENTMSG draft (.vale.ini judges a commit message under its
-# own stricter scope), and the cargo build tree; the per-file-type
+# own stricter scope), the cargo build tree, and the second build tree
+# the layer checker keeps beside it; the per-file-type
 # rules in .vale.ini decide what else gets inspected. Findings render
 # through the proofhouse-agent template from the proofhouse package:
 # one machine-parseable line per finding.
 lint-prose *args:
-    vale --output=proofhouse-agent.tmpl --glob='!{LICENSE,CHANGELOG.md,.vale/*,tmp/*,.claude/worktrees/*,COMMIT_AGENTMSG,target/*}' {{ if args == "" { "." } else { args } }}
+    vale --output=proofhouse-agent.tmpl --glob='!{LICENSE,CHANGELOG.md,.vale/*,tmp/*,.claude/worktrees/*,COMMIT_AGENTMSG,target/*,.pup/*}' {{ if args == "" { "." } else { args } }}
 
 # Check spelling tree-wide with cspell, against the project dictionary
 # at .cspell-words.txt plus the bundled Rust and crate-name
@@ -350,6 +365,40 @@ lint-editorconfig:
 # of the set carries.
 lint-workflows:
     {{ actionlint }}
+
+# Refuse a source file that sits in the crate directory with no `mod`
+# declaration reaching it. Such a file compiles nowhere and is read as
+# live code by everyone who opens it. cargo-modules resolves the crate
+# the way an editor does rather than by reading source text, so a
+# module a macro declares counts as reached.
+#
+# The same subcommand set offers a cycle check, which this recipe
+# leaves alone. It walks a graph whose nodes are items rather than
+# modules, and a type owning a method that names the type is a cycle
+# by that reading, so every crate with an impl block fails it. Upward
+# imports are what a module cycle needs, and `lint-pup` refuses those
+# one layer at a time.
+#
+# Neither this recipe nor `lint-pup` joins `lint-rs-all`, both being
+# far too expensive to install for the job every ordinary checker
+# shares. The `arch` job in ci.yml runs the pair instead and blocks a
+# merge on them all the same.
+lint-arch:
+    cargo modules orphans --deny --package proofhouse-rust-lib --lib
+
+# Check the layer contract written down in pup.ron, which is the
+# question the graph shape above leaves open: not whether one module
+# reaches another, but whether it may. cargo-pup is a compiler plugin,
+# so it reads imports the compiler already resolved and loads only
+# under the nightly it was built against. That date is spelled out
+# here and moves when a cargo-pup release moves it, with no dependency
+# manager watching the pair, so treat it as a note to whoever upgrades
+# the tool. The same nightly predates the minimum release this crate
+# supports, hence the flag waving that floor through — the run
+# type-checks the crate to inspect it and produces nothing anyone
+# installs. Get the toolchain and the plugin with `install-pup`.
+lint-pup:
+    cargo +nightly-2026-01-22 pup check --ignore-rust-version
 
 # Pre-validate a drafted commit message against the same gates the
 # commit-msg hook runs, so message problems surface while iterating
