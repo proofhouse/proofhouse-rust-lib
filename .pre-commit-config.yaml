@@ -126,6 +126,20 @@ repos:
         stages: [pre-push]
         pass_filenames: false
 
+      # Third of the hooks that has to build before it can answer, and
+      # the only one that then runs what it built. Test targets from a
+      # cold directory cost what the two above cost, which puts this on
+      # their stage. always_run because a test reads across the whole
+      # crate and the change that breaks one need never have touched a
+      # file under a test filter.
+      - id: nextest
+        name: nextest
+        entry: just test
+        language: system
+        stages: [pre-push]
+        always_run: true
+        pass_filenames: false
+
       # A dependency enters through a manifest, so that is the file this
       # hook watches. Deleting the last use of a crate can strand one
       # too, but paying for a scan on every source edit to catch the

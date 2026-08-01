@@ -57,6 +57,13 @@ path = [".github/**"]
 SPDX-FileCopyrightText = "Copyright Authors of Proofhouse"
 SPDX-License-Identifier = "Apache-2.0"
 
+# Tool settings kept under .config/ rather than in the root. Globbed by
+# directory for the same reason the workflows above are.
+[[annotations]]
+path = [".config/**"]
+SPDX-FileCopyrightText = "Copyright Authors of Proofhouse"
+SPDX-License-Identifier = "Apache-2.0"
+
 # This project's own vale vocabulary. The upstream style packages that
 # `vale sync` downloads stay gitignored, so the glob never speaks for
 # third-party material.
