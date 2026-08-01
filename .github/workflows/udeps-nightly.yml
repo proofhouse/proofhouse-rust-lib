@@ -1,0 +1,82 @@
+---
+# Unused-dependency sweep on a clock. The gate on the pull request path
+# reads the manifests and searches the sources for each crate's name,
+# which settles most cases and cannot settle the rest: a crate reached
+# only through a macro expansion, or one a feature flag hides from a
+# text search, leaves no name behind to find. Deciding those takes a
+# build of every target and a question put to rustc afterward about
+# which of the resolved crates it loaded. That is the run this workflow
+# pays for, once a night, away from anything a merge waits on.
+#
+# The compiler here is whatever nightly ships that morning. Naming a
+# date instead would leave a version string no dependency manager knows
+# how to look at, aging in place until it described a compiler nobody
+# still has. A floating nightly that breaks shows up the next morning
+# as a red run, and red on this schedule is a thing to go read rather
+# than a closed gate.
+
+name: udeps-nightly
+
+on:
+  schedule:
+    # 05:53 UTC. Off-peak for the runner pool, off the top of the hour,
+    # and on a minute no other schedule in this repository or the ones
+    # beside it has claimed, so two nightly jobs never queue behind
+    # each other for a machine.
+    - cron: "53 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  udeps:
+    name: udeps
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Naming a channel here overrides the stable version pinned in
+      # rust-toolchain.toml, which is the point: the flag that makes
+      # rustc report its loaded crates has never left nightly. Caching
+      # is left to the step under this one, as everywhere else.
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          toolchain: nightly
+          cache: false
+
+      # The condition is the one every other job carries, and on this
+      # schedule it holds, since a scheduled run checks out the default
+      # branch. So the sweep reads the cache and writes it back. The
+      # night a nightly lands rebuilds the workspace and the night
+      # after that starts warm.
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # A prebuilt binary off the publisher's releases, checked against
+      # their checksum and build attestation, the way the lint job gets
+      # its own cargo linter. Renovate finds the version through the
+      # marker comment, which has to sit directly above the input it
+      # speaks for.
+      - name: Install cargo tools
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        with:
+          # renovate: datasource=crate depName=cargo-udeps
+          tool: cargo-udeps@0.1.61
+
+      - name: Set up just
+        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+
+      - name: Sweep for unused dependencies
+        run: just lint-udeps

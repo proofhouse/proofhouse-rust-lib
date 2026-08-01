@@ -38,6 +38,7 @@ tbhb
 tmpl
 tombi
 Tricolon
+udeps
 venv
 worktree
 worktrees

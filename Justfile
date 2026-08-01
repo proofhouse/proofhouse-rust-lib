@@ -206,13 +206,15 @@ lock-check:
 
 # Aggregator over the Rust-flavored lint sub-recipes: the rustfmt drift
 # check, clippy across every lint group, the documentation render, the
-# unused-dependency scan, the clone detector, the licensing audit, and
-# actionlint over the workflow files. Carved out so a contributor
-# working on the crate can rerun the compiler-adjacent gates without
-# paying for the whole text-quality toolchain; each new Rust gate
-# appends itself here. actionlint rides along even though it reads YAML
-# rather than Rust — it belongs to the same per-pull-request gate set,
-# and the sibling repos give it the same slot.
+# manifest scan for unused dependencies, the clone detector, the
+# licensing audit, and actionlint over the workflow files. Carved out
+# so a contributor working on the crate can rerun the compiler-adjacent
+# gates without paying for the whole text-quality toolchain; each new
+# Rust gate appends itself here, except the nightly sweep in
+# `lint-udeps`, which no merge path may reach. actionlint rides along
+# even though it reads YAML rather than Rust — it belongs to the same
+# per-pull-request gate set, and the sibling repos give it the same
+# slot.
 lint-rs-all: lint-rs-format lint-clippy lint-docs lint-machete lint-dup-code lint-reuse lint-workflows
 
 # Aggregate lint gate. Every checker the repo gains hangs off this one
@@ -259,6 +261,19 @@ lint-docs:
 # rewriting Cargo.lock from under a read-only gate, so it stays off.
 lint-machete:
     cargo machete
+
+# Name the dependencies the compiler never loads. Where the scan above
+# reads text, this one builds every target across both workspace
+# members and then asks rustc which of the resolved crates it read, so
+# the cases a search has no way to reach — a crate named from inside a
+# macro expansion, one a feature gate leaves out of the sources — get an
+# answer at last. The flag carrying that answer has never stabilized,
+# hence the nightly compiler. Nothing a merge waits on may rest on a
+# toolchain that changes overnight, so this recipe stays outside
+# lint-rs-all and a scheduled workflow calls it instead; lint-machete
+# holds the pull request end of the same question.
+lint-udeps:
+    cargo +nightly udeps --workspace --all-targets
 
 # Hunt for copy-pasted Rust. jscpd compares token streams rather than
 # lines, so a clone stays visible after its bindings are renamed and

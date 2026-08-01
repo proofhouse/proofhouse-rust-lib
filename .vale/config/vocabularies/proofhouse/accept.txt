@@ -159,3 +159,5 @@ editorconfig
 [Ss]uppression[s]?
 [Rr]ustdoc
 jscpd
+rustc
+udeps
