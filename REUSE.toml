@@ -1,0 +1,80 @@
+# Bulk copyright and license declarations for the files that cannot or
+# should not carry the inline two-line header every Rust source opens
+# with. reuse lint holds out until each tracked file names a holder and
+# a license, and the non-Rust remainder of the tree names both here.
+version = 1
+
+# Configuration and dotfiles. Some of these formats take comments and
+# some have no syntax for one at all, and among the ones that do,
+# several are shorter than the header would be. Declaring the whole
+# group in a single place leaves coverage independent of what any one
+# format allows. The last two entries sit below the root rather than in
+# it: cargo reads one for its own settings and resolves the other as
+# the second member of the workspace.
+[[annotations]]
+path = [
+  ".cargo/config.toml",
+  ".cspell-words.txt",
+  ".cspell.jsonc",
+  ".editorconfig",
+  ".editorconfig-checker.json",
+  ".gitattributes",
+  ".gitignore",
+  ".jscpd.json",
+  ".pre-commit-config.yaml",
+  ".rumdl.toml",
+  ".vale.ini",
+  ".yamllint.yaml",
+  ".yamllintignore",
+  "biome.json",
+  "Brewfile",
+  "Cargo.toml",
+  "clippy.toml",
+  "cog.toml",
+  "Justfile",
+  "pup.ron",
+  "rust-toolchain.toml",
+  "rustfmt.toml",
+  "tombi.toml",
+  "xtask/Cargo.toml",
+]
+SPDX-FileCopyrightText = "Copyright Authors of Proofhouse"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Cargo owns the resolved dependency graph and rewrites the file whole
+# whenever the manifest moves, so anything written into it by hand is
+# gone by the next resolution.
+[[annotations]]
+path = ["Cargo.lock"]
+SPDX-FileCopyrightText = "Copyright Authors of Proofhouse"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Workflows, the code owners file, and the actionlint and Renovate
+# configuration. Globbed by directory so the next workflow to land
+# arrives covered rather than failing the gate until someone lists it.
+[[annotations]]
+path = [".github/**"]
+SPDX-FileCopyrightText = "Copyright Authors of Proofhouse"
+SPDX-License-Identifier = "Apache-2.0"
+
+# This project's own vale vocabulary. The upstream style packages that
+# `vale sync` downloads stay gitignored, so the glob never speaks for
+# third-party material.
+[[annotations]]
+path = [".vale/**"]
+SPDX-FileCopyrightText = "Copyright Authors of Proofhouse"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Contributor and agent documentation, including the rules directory
+# the agent harness reads.
+[[annotations]]
+path = ["AGENTS.md", "CLAUDE.md", ".claude/**"]
+SPDX-FileCopyrightText = "Copyright Authors of Proofhouse"
+SPDX-License-Identifier = "Apache-2.0"
+
+# cog rebuilds the changelog from commit history at every release, so
+# it lands without the inline header and is declared here instead.
+[[annotations]]
+path = ["CHANGELOG.md"]
+SPDX-FileCopyrightText = "Copyright Authors of Proofhouse"
+SPDX-License-Identifier = "Apache-2.0"

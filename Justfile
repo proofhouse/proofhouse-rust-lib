@@ -206,14 +206,14 @@ lock-check:
 
 # Aggregator over the Rust-flavored lint sub-recipes: the rustfmt drift
 # check, clippy across every lint group, the documentation render, the
-# unused-dependency scan, the clone detector, and actionlint over the
-# workflow files. Carved out so a contributor working on the crate can
-# rerun the compiler-adjacent gates without paying for the whole
-# text-quality toolchain; each new Rust gate appends itself here.
-# actionlint rides along even though it reads YAML rather than Rust —
-# it belongs to the same per-pull-request gate set, and the sibling
-# repos give it the same slot.
-lint-rs-all: lint-rs-format lint-clippy lint-docs lint-machete lint-dup-code lint-workflows
+# unused-dependency scan, the clone detector, the licensing audit, and
+# actionlint over the workflow files. Carved out so a contributor
+# working on the crate can rerun the compiler-adjacent gates without
+# paying for the whole text-quality toolchain; each new Rust gate
+# appends itself here. actionlint rides along even though it reads YAML
+# rather than Rust — it belongs to the same per-pull-request gate set,
+# and the sibling repos give it the same slot.
+lint-rs-all: lint-rs-format lint-clippy lint-docs lint-machete lint-dup-code lint-reuse lint-workflows
 
 # Aggregate lint gate. Every checker the repo gains hangs off this one
 # recipe, so there is a single command to run them all. The Rust gates
@@ -275,8 +275,22 @@ lint-machete:
 lint-dup-code:
     jscpd --no-tips .
 
+# Ask every tracked file who holds the copyright and under what terms.
+# A Rust source answers with the two-line header it opens with, and
+# reading that answer off the file rather than out of a list is the
+# point of the gate. Everything else answers through REUSE.toml, where
+# the same pair of facts is written once per group of files. The
+# identifier those answers carry has to resolve to a license text, and
+# LICENSES/ is the directory reuse resolves it against. Splitting the
+# scan across processes is turned off: starting the pool takes longer
+# than reading a tree this size, and a sandbox that withholds the
+# semaphores behind it would leave no way to run the gate at all.
+lint-reuse:
+    reuse --no-multiprocessing lint
+
 # Lint prose in Markdown files and source comments via vale. The glob
-# drops the LICENSE (canonical Apache 2.0 text), the generated
+# drops both copies of the canonical Apache 2.0 text (the root LICENSE
+# and the LICENSES/ directory reuse reads), the generated
 # changelog, vale's own synced style packages, scratch dirs, the
 # gitignored agent worktrees under .claude/worktrees/, the
 # COMMIT_AGENTMSG draft (.vale.ini judges a commit message under its
@@ -286,7 +300,7 @@ lint-dup-code:
 # through the proofhouse-agent template from the proofhouse package:
 # one machine-parseable line per finding.
 lint-prose *args:
-    vale --output=proofhouse-agent.tmpl --glob='!{LICENSE,CHANGELOG.md,.vale/*,tmp/*,.claude/worktrees/*,COMMIT_AGENTMSG,target/*,.pup/*}' {{ if args == "" { "." } else { args } }}
+    vale --output=proofhouse-agent.tmpl --glob='!{LICENSE,LICENSES/*,CHANGELOG.md,.vale/*,tmp/*,.claude/worktrees/*,COMMIT_AGENTMSG,target/*,.pup/*}' {{ if args == "" { "." } else { args } }}
 
 # Check spelling tree-wide with cspell, against the project dictionary
 # at .cspell-words.txt plus the bundled Rust and crate-name
@@ -344,8 +358,9 @@ lint-just:
 # hook and the recipe judge the same files, plus CHANGELOG.md, which
 # `cog changelog` regenerates wholesale and leaves without a final
 # newline every release — the vale hook and the prose recipes already
-# skip it for that reason. The tool's own default excludes drop
-# Cargo.lock and the binary formats on top of that. Upstream's release
+# skip it for that reason — and LICENSES/, whose contents are upstream
+# license text nobody here may reflow. The tool's own default excludes
+# drop Cargo.lock and the binary formats on top of that. Upstream's release
 # archives also carry a short `ec` alias, but the Homebrew formula this
 # repo provisions from builds the long name only, so the recipe spells
 # it out.
