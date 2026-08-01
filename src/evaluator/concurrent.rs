@@ -56,8 +56,9 @@ mod tests {
     use crate::parser::parse;
 
     /// Texts covering each node type, nesting on both sides of an
-    /// operator, a subexpression repeated within one tree, and the two
-    /// ways a walk fails.
+    /// operator, a subexpression repeated within one tree, the two ways
+    /// a walk fails, and a failure arriving from either operand of a
+    /// node whose own operator would have succeeded.
     const CASES: &[&str] = &[
         "7",
         "-3",
@@ -70,6 +71,8 @@ mod tests {
         "-(1 + 2 * 3) / (4 - 1)",
         "1/0",
         "(1 + 2) / (3 - 3)",
+        "1/0 + 1",
+        "1 + 1/0",
     ];
 
     #[test]

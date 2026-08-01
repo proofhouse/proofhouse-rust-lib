@@ -1,8 +1,8 @@
 ---
 # Main quality gate. Runs the full lint set, the module-structure
-# contracts, the Cargo.lock drift check, and the test suite (matrixed
-# across linux/macOS/windows native runners) on every pull request and
-# every push to `main`.
+# contracts, the Cargo.lock drift check, the test suite, and the
+# coverage measurement (the last two matrixed across linux/macOS/windows
+# native runners) on every pull request and every push to `main`.
 # Each gate runs as its own job so a flake in one block does not
 # require rerunning the others and the PR status surfaces which gate
 # fired.
@@ -333,3 +333,162 @@ jobs:
 
       - name: Run the interleaving models
         run: just test-loom
+
+  # Coverage takes a matrix of its own rather than riding the test job
+  # above. The suite has to run on the toolchain the project ships,
+  # while branch instrumentation answers only on a nightly compiler, and
+  # no single job can be on both. The slots match the test matrix
+  # because a branch only one platform takes still has to be reached by
+  # something, and the fan-in below is what says whether it was.
+  cover:
+    name: "cover (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-15
+          - windows-2025
+    steps:
+      # As in the test matrix: the egress monitoring rests on Linux
+      # kernel facilities the other two platforms do not offer.
+      - name: Harden the runner
+        if: runner.os == 'Linux'
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The dated nightly channel the `coverage_toolchain` variable in
+      # the Justfile names, repeated here because the action reads a
+      # channel rather than a recipe. Nothing tracks the date, so the two
+      # move by hand together. llvm-tools-preview supplies the profile
+      # reader the coverage tool shells out to. Its own caching is off so
+      # the rust-cache step below is the only thing writing the cache.
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          toolchain: nightly-2026-08-01
+          components: llvm-tools-preview
+          cache: false
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Set up just
+        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+
+      # Two installs rather than one step naming both tools: the marker
+      # comment Renovate reads has to sit on the line above the `tool:`
+      # input, and a list holding two entries leaves nowhere to put the
+      # second one.
+      - name: Install the test runner
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        with:
+          # renovate: datasource=crate depName=cargo-nextest
+          tool: cargo-nextest@0.9.140
+
+      - name: Install the coverage tool
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        with:
+          # renovate: datasource=crate depName=cargo-llvm-cov
+          tool: cargo-llvm-cov@0.8.7
+
+      # The runner label names the tracefile, which is how four slots
+      # land four artifacts the fan-in can tell apart.
+      - name: Measure coverage
+        run: just cover "${{ matrix.os }}"
+
+      # Retained for a day: the only consumer is the job below, and it
+      # runs minutes after the upload.
+      - name: Upload the tracefile
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-${{ matrix.os }}
+          path: lcov-${{ matrix.os }}.info
+          if-no-files-found: error
+          retention-days: 1
+
+  # The authoritative reading. Each slot above already holds itself to
+  # every region, and this job answers the question none of them can:
+  # what the four runs reached between them, over one merged report.
+  coverage:
+    name: coverage
+    runs-on: ubuntu-24.04
+    needs: cover
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      # The diff check compares against the base branch, so the full
+      # history has to come along rather than the default shallow clone.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # Reads the pinned toolchain from rust-toolchain.toml. The nightly
+      # compiler belongs to the measurement; reading the tracefile is
+      # ordinary work for the shipping one.
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          cache: false
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Set up just
+        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+
+      # The diff check comes from PyPI, where no manager here reads a
+      # version out of a workflow file. Bump this pin by hand when the
+      # release notes give a reason to, the way the nightly channel above
+      # is bumped.
+      - name: Install the diff coverage check
+        run: uv tool install diff-cover==10.4.1
+
+      # lcov merges the per-slot reports. The runner image ships no copy
+      # of it, and neither the coverage tool nor the task runner unions
+      # two reports over the same source file.
+      - name: Install lcov
+        run: sudo apt-get update && sudo apt-get install --yes lcov
+
+      # merge-multiple drops every slot's tracefile back into the working
+      # directory under the name it was written with, which is the glob
+      # the combine recipe walks.
+      - name: Download the tracefiles
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+
+      - name: Merge the tracefiles and check the total
+        run: just cover-combine
+
+      # The merged total already holds the whole tree, so this fires only
+      # where a change drops coverage on a line it touched — and then it
+      # names that line instead of moving a total by a fraction.
+      # github.base_ref exists on pull requests alone, which is what
+      # scopes the step.
+      - name: Check coverage on the changed lines
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          just cover-diff "origin/${{ github.base_ref }}"
