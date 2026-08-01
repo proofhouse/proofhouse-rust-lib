@@ -10,8 +10,10 @@ set script-interpreter := ['bash', '-eu']
 # Put rustup's shim directory ahead of any distro or Homebrew cargo on
 # PATH. When the shadowing binary wins, rust-toolchain.toml is silently
 # ignored and recipes run under whatever compiler that binary carries.
-# The Go twin prepends GOPATH/bin the same way.
-export PATH := env("CARGO_HOME", env("HOME") + "/.cargo") + "/bin:" + env("PATH")
+# The Go twin prepends GOPATH/bin the same way. home_directory() rather
+# than env("HOME") because the file has to parse on hosts that set no
+# HOME.
+export PATH := env("CARGO_HOME", home_directory() + "/.cargo") + "/bin:" + env("PATH")
 
 # Locate a Docker-compatible container runtime. Probe PATH first, then
 # well-known install locations so the recipe still works inside agentic
