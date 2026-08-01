@@ -166,6 +166,18 @@ repos:
         stages: [pre-push]
         pass_filenames: false
 
+      # The two-line header a Rust source opens with had no reader
+      # until now. reuse reads it, and puts the same question to every
+      # other tracked file besides, code or not. A file arrives without
+      # an answer far more often than an existing one loses it, and the
+      # arriving file can be of any kind, so this hook narrows to
+      # nothing and passes no filenames along.
+      - id: reuse
+        name: reuse lint
+        entry: just lint-reuse
+        language: system
+        pass_filenames: false
+
       # Tree-wide .editorconfig enforcement. No types or files filter:
       # the gate spans every tracked file, so a newly added config or
       # fixture with CRLF endings or a missing final newline has to trip

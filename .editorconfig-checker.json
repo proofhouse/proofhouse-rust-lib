@@ -1,6 +1,7 @@
 {
   "Exclude": [
     "^\\.vale/(Google|write-good|proselint|ai-tells.*)/",
+    "^LICENSES/",
     "^CHANGELOG\\.md$"
   ]
 }

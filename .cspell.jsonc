@@ -8,6 +8,7 @@
     ".vale/**/*",
     "Cargo.lock",
     "LICENSE",
+    "LICENSES/**/*",
     "node_modules/**/*",
     "target/**/*",
     "tmp/**/*"
