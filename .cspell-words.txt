@@ -3,6 +3,7 @@ autostash
 backticked
 binstall
 buildmeta
+cfgs
 cocogitto
 codegen
 commitlint
@@ -32,6 +33,7 @@ RUSTDOCFLAGS
 RUSTFLAGS
 sandboxed
 shellcheck
+subexpression
 Swatinem
 taiki
 tbhb

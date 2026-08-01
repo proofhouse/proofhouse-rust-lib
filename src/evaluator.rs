@@ -3,6 +3,8 @@
 
 //! Exact-arithmetic evaluator walking an expression tree.
 
+pub mod concurrent;
+
 use crate::ast::{BinaryOperator, Expr, UnaryOperator};
 use crate::errors::{EvalError, ExpressionError};
 use crate::parser::parse;
