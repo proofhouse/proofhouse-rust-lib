@@ -217,6 +217,81 @@ test-doc:
 test-loom:
     RUSTFLAGS="--cfg loom" LOOM_MAX_PREEMPTIONS=3 cargo nextest run -p proofhouse-rust-lib --test loom
 
+# --- Coverage ---
+
+# Toolchain the coverage run compiles under. Branch instrumentation is
+# still an unstable feature, so it answers on a nightly compiler only,
+# and a dated channel keeps two runs of one commit on the same one.
+# Nothing bumps this date on its own: raise it by hand, rerun `just
+# cover`, and move the workflow along with it — the cover job in
+# .github/workflows/ci.yml sets up the same channel and points back here.
+coverage_toolchain := "nightly-2026-08-01"
+
+# Run the suite under branch instrumentation and hold the result at every
+# line and every branch.
+#
+# --remap-path-prefix rewrites the workspace root out of the tracefile,
+# so a path one operating system writes matches what the others write and
+# the merge downstream lands one entry per source file. --skip-functions
+# drops the per-function records; nothing reads them here and they are
+# where a merge across platforms finds contradictions. The task runner
+# leaves the measured surface through --exclude: it is the thing reading
+# the report, and asking a report to speak for its own reader is
+# circular. The region threshold on the run is the backstop the coverage
+# tool enforces by itself; `cargo xtask coverage` then reads the
+# tracefile and answers for lines and branches, which is the pair this
+# project gates on.
+#
+# The slot argument names the tracefile. CI hands it the runner label so
+# every matrix slot uploads a file of its own; locally it stays "local".
+cover slot="local":
+    cargo +{{ coverage_toolchain }} llvm-cov nextest --branch --all-features --workspace --exclude xtask --remap-path-prefix --skip-functions --fail-under-regions 100 --lcov --output-path lcov-{{ slot }}.info
+    cargo xtask coverage lcov-{{ slot }}.info
+
+# Render the per-line HTML report and name the entry point. The source
+# view shades each line and each branch arm by whether a test reached it,
+# which points at the arm a new test still has to exercise. Local
+# inspection only, so it names no threshold.
+cover-html:
+    cargo +{{ coverage_toolchain }} llvm-cov nextest --branch --all-features --workspace --exclude xtask --html
+    @echo "open target/llvm-cov/html/index.html"
+
+# Merge every slot's tracefile into one and check the merged total. This
+# is the authoritative reading: a branch that no single operating system
+# exercises still has to be reached by some slot, and only the merged
+# file says whether it was. lcov does the merging rather than the task
+# runner, because merging means combining the per-line hit counts of two
+# reports over one file, where adding the summary lines of both would
+# ask every slot to carry the whole tree alone. The CI coverage job
+# runs this after collecting the per-slot artifacts.
+#
+# Two adjustments make that merge mean what it says. A Windows runner
+# writes its source paths with a backslash, so the same file arrives
+# under a second spelling and the merge would keep the two apart;
+# rewriting the separator first lands one entry per source file.
+# Branch records are the other: lcov discards them unless the run asks
+# for them, and a merged report with no branch records left would clear
+# a branch threshold by having nothing to fail on.
+[script]
+cover-combine:
+    tracefiles=()
+    for slot in lcov-*.info; do
+        normalized=$(mktemp)
+        tr '\\' '/' < "$slot" > "$normalized"
+        mv "$normalized" "$slot"
+        tracefiles+=(--add-tracefile "$slot")
+    done
+    lcov --branch-coverage "${tracefiles[@]}" --output-file lcov.info
+    cargo xtask coverage lcov.info
+
+# Fail when any line changed since [base] lacks coverage. The whole-tree
+# floor already sits at every line, so on a clean branch this says
+# nothing new; it earns its keep by naming the touched lines directly the
+# moment a change does drop one, which reads faster than a total that
+# moved. Reads the merged tracefile, so `cover-combine` runs first.
+cover-diff base="origin/main":
+    diff-cover lcov.info --compare-branch={{ base }} --fail-under=100
+
 # --- Dependencies ---
 
 # Check that Cargo.lock is in sync with the manifests. Under the locked

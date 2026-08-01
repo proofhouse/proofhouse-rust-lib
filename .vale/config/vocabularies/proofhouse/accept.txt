@@ -165,3 +165,5 @@ udeps
 [Ii]nitializer[s]?
 nextest
 JUnit
+lcov
+[Tt]racefiles?

@@ -40,12 +40,18 @@ publish = false
 dead_code = "deny"
 missing_docs = "deny"
 unreachable_pub = "deny"
+
 # A `cfg` the build never sets is usually a typo, and the compiler says
-# so for every name it has not been told about. `loom` is the one name
-# this workspace sets by hand, from the recipe that runs the
-# interleaving models; declaring it here is what keeps the warning
-# pointed at the typos.
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(loom)"] }
+# so for every name it has not been told about. Two names reach the
+# build from outside the sources: the recipe running the interleaving
+# models sets `loom`, and the coverage tool sets `coverage_nightly` on
+# the run it instruments. Naming both is what leaves the warning
+# pointed at the typos. A table of its own rather than the inline form
+# the entries above use, the pair of settings being longer than one
+# line holds.
+[workspace.lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = ["cfg(coverage_nightly)", "cfg(loom)"]
 
 # Every clippy group at once, restriction included, each sitting at
 # priority -1 so the individual entries further down win. The sibling

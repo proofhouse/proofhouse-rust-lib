@@ -335,6 +335,21 @@ mod tests {
     }
 
     #[test]
+    fn a_failure_carries_up_from_whichever_side_holds_it() {
+        // Each text puts the zero divisor under a different operand
+        // slot, which is what walks the three paths a failure can take
+        // out of a subtree: through a prefix operator, and out of either
+        // side of an infix one.
+        for input in ["-(1/0)", "1/0 + 1", "1 + 1/0"] {
+            assert_eq!(
+                evaluate_text(input),
+                Err(ExpressionError::Eval(EvalError::DivisionByZero)),
+                "input {input:?}"
+            );
+        }
+    }
+
+    #[test]
     fn evaluate_text_hands_back_a_parse_failure_unchanged() {
         assert_eq!(
             evaluate_text("1+"),

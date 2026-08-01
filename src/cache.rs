@@ -130,6 +130,7 @@ mod tests {
     use crate::errors::EvalError;
     use crate::evaluator::Rational;
     use crate::parser::parse;
+    use std::panic::{AssertUnwindSafe, catch_unwind};
     use std::thread;
 
     /// Build the tree a text spells out, the cases below all being
@@ -197,6 +198,29 @@ mod tests {
         });
         assert_eq!(answers.0, Ok(Rational::from_integer(42)));
         assert_eq!(answers.1, answers.0);
+        assert_eq!(cache.evaluations(), 1);
+    }
+
+    #[test]
+    #[expect(
+        clippy::panic,
+        reason = "raising the flag is what the test is about and only an unwind under the lock raises it"
+    )]
+    fn a_poisoned_table_goes_on_serving_keys() {
+        let cache = ExprCache::new();
+        // Nothing the table does under its own lock can panic, so the
+        // flag gets raised from here: take the lock and unwind under it,
+        // which is what a caller panicking in an initializer that reaches
+        // this table would leave behind.
+        let poisoning = catch_unwind(AssertUnwindSafe(|| {
+            let _held = cache.entries.lock().unwrap();
+            panic!("the flag goes up on purpose");
+        }));
+        poisoning.unwrap_err();
+        assert_eq!(
+            cache.evaluate(&tree("6 * 7")),
+            Ok(Rational::from_integer(42))
+        );
         assert_eq!(cache.evaluations(), 1);
     }
 }

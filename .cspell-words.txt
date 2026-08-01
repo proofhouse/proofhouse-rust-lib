@@ -40,6 +40,8 @@ taiki
 tbhb
 tmpl
 tombi
+tracefile
+tracefiles
 Tricolon
 udeps
 venv
