@@ -91,6 +91,17 @@ repos:
         types: [toml]
         pass_filenames: false
 
+      # The fixer runs here, the way the biome hook above rewrites
+      # rather than reports. On the merge path the check-only twin
+      # `lint-rs-format` runs instead, so a commit that skipped its
+      # hooks still meets a gate that fails on drift.
+      - id: rustfmt
+        name: rustfmt
+        entry: just format-rs
+        language: system
+        types: [rust]
+        pass_filenames: false
+
       # Tree-wide .editorconfig enforcement. No types or files filter:
       # the gate spans every tracked file, so a newly added config or
       # fixture with CRLF endings or a missing final newline has to trip

@@ -185,11 +185,28 @@ lock-check:
 
 # --- Lint ---
 
+# Aggregator over the Rust-flavored lint sub-recipes: the rustfmt drift
+# check, and actionlint over the workflow files. Carved out so a
+# contributor working on the crate can rerun the compiler-adjacent
+# gates without paying for the whole text-quality toolchain; each new
+# Rust gate appends itself here. actionlint rides along even though it
+# reads YAML rather than Rust — it belongs to the same per-pull-request
+# gate set, and the sibling repos give it the same slot.
+lint-rs-all: lint-rs-format lint-workflows
+
 # Aggregate lint gate. Every checker the repo gains hangs off this one
-# recipe, so there is a single command to run them all. Prose, spelling,
-# Markdown, JSON, YAML, TOML, this file's own layout, and the
-# whitespace baseline are its members today.
-lint: lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml lint-just lint-editorconfig
+# recipe, so there is a single command to run them all. The Rust gates
+# arrive through `lint-rs-all`; prose, spelling, Markdown, JSON, YAML,
+# TOML, this file's own layout, and the whitespace baseline follow.
+lint: lint-rs-all lint-prose lint-spelling lint-markdown lint-config lint-yaml lint-toml lint-just lint-editorconfig
+
+# Fail when rustfmt would rewrite any Rust source in the workspace.
+# Reports the drift and leaves the tree alone; `format-rs` is the half
+# that applies it, the same read-only and in-place pairing `lint-toml`
+# and `format-toml` use. Settings come from rustfmt.toml, and --all
+# reaches the xtask member alongside the library crate.
+lint-rs-format:
+    cargo fmt --all --check
 
 # Lint prose in Markdown files and source comments via vale. The glob
 # drops the LICENSE (canonical Apache 2.0 text), the generated
@@ -274,9 +291,10 @@ lint-editorconfig:
 # checks YAML structure) with workflow-shape rules yamllint can't see.
 # Runs from the digest-pinned Docker image declared at the top of this
 # file; Renovate bumps the version + digest via the shared Justfile
-# customManager. Deliberately outside the `lint` aggregate: no other
-# member needs a container runtime, and the shared lint-workflows
-# workflow already gates these files on every pull request.
+# customManager. It sits inside `lint-rs-all`, so the merge path reads
+# these files here as well as through the shared lint-workflows
+# workflow. A container runtime is the one dependency no other member
+# of the set carries.
 lint-workflows:
     {{ actionlint }}
 
@@ -294,9 +312,15 @@ lint-commit-msg:
 
 # --- Format ---
 
-# Aggregate in-place formatter. Grows per gate; carries the Markdown, JSON,
-# TOML, and Justfile fixers today.
-format: format-markdown format-config format-toml format-just
+# Aggregate in-place formatter. Grows per gate; carries the Rust,
+# Markdown, JSON, TOML, and Justfile fixers today.
+format: format-rs format-markdown format-config format-toml format-just
+
+# Rewrite Rust source in rustfmt's canonical shape, across every
+# workspace member. The gate that reports the same drift without
+# touching anything is `lint-rs-format`, which is what CI runs.
+format-rs:
+    cargo fmt --all
 
 # Format Markdown files (whitespace, list markers, code fence styles).
 # Rewrites in place. Pair with `fix-markdown` for semantic lint fixes.

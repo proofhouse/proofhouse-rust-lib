@@ -153,3 +153,4 @@ cocogitto
 CHANGELOG
 Brewfile
 editorconfig
+[Rr]ustfmt

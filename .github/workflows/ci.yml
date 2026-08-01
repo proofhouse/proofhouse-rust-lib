@@ -30,12 +30,13 @@ concurrency:
 jobs:
   # Invokes only the `lint` aggregator recipe, so the job stays
   # unchanged as new gates land — each gate appends itself to the
-  # aggregator in the Justfile instead. Those gates (prose, spelling,
-  # Markdown, JSON, YAML, TOML) used to run only through the local
-  # pre-commit hooks, which `git commit --no-verify` walks straight
-  # past, so nothing on the merge path read them. None of the tools
-  # they need is a cargo dependency, so the job installs the Brewfile
-  # toolchain and syncs the Vale styles first.
+  # aggregator in the Justfile instead. Those gates used to run only
+  # through the local pre-commit hooks, which `git commit --no-verify`
+  # walks straight past, so nothing on the merge path read them. The
+  # set spans two toolchains now: the prose, spelling, Markdown, JSON,
+  # YAML, and TOML checkers come out of the Brewfile, while the Rust
+  # gates want a compiler, so the pinned toolchain gets installed here
+  # too.
   lint:
     name: lint
     runs-on: ubuntu-24.04
@@ -49,6 +50,21 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # Reads rust-toolchain.toml, same as the other jobs. Its own
+      # caching stays off so the step below can own that policy.
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          cache: false
+
+      # Restores on every run, writes back only from `main`, matching
+      # the test job. rustfmt reads no build artifacts, but the gates
+      # that arrive later compile the crate.
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Set up just
         uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
@@ -71,7 +87,11 @@ jobs:
       # alongside the rustup and cargo helpers later recipes reach for.
       # The Brewfile also names just, which the setup step above already
       # installed; letting brew reinstall it costs less than keeping a
-      # second, partial dependency list in step with the first.
+      # second, partial dependency list in step with the first. Its
+      # rustup formula puts a second cargo under the Homebrew prefix,
+      # and guarding against exactly that is why the Justfile exports a
+      # PATH with the shim directory in front: the toolchain the step
+      # above pinned wins no matter which of the two ran last.
       - name: Install Homebrew dependencies
         run: brew bundle install
 
