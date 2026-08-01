@@ -118,9 +118,9 @@ lock-check:
 # --- Lint ---
 
 # Aggregate lint gate. Every checker the repo gains hangs off this one
-# recipe, so there is a single command to run them all. Prose and TOML
-# are its members today.
-lint: lint-prose lint-toml
+# recipe, so there is a single command to run them all. Prose, spelling,
+# and TOML are its members today.
+lint: lint-prose lint-spelling lint-toml
 
 # Lint prose in Markdown files and source comments via vale. The glob
 # drops the LICENSE (canonical Apache 2.0 text), the generated
@@ -133,6 +133,16 @@ lint: lint-prose lint-toml
 # one machine-parseable line per finding.
 lint-prose *args:
     vale --output=proofhouse-agent.tmpl --glob='!{LICENSE,CHANGELOG.md,.vale/*,tmp/*,.claude/worktrees/*,COMMIT_AGENTMSG,target/*}' {{ if args == "" { "." } else { args } }}
+
+# Check spelling tree-wide with cspell, against the project dictionary
+# at .cspell-words.txt plus the bundled Rust and crate-name
+# dictionaries — the pair covers ordinary Rust identifiers and the
+# dependency names in Cargo.toml without either landing in the project
+# list. Generated and vendored trees drop out through ignorePaths in
+# .cspell.jsonc. The COMMIT_AGENTMSG draft stays out too, since a
+# half-written message would otherwise fail every tree-wide run.
+lint-spelling *args:
+    cspell --config .cspell.jsonc --no-summary --no-progress --no-must-find-files --exclude COMMIT_AGENTMSG {{ if args == "" { "." } else { args } }}
 
 # tombi is the org TOML gate (tombi 1.2.0): lint-checks Cargo.toml (validated offline
 # against the embedded SchemaStore cargo.json), rust-toolchain.toml, .cargo/config.toml,

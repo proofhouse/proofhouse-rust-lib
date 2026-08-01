@@ -1,0 +1,22 @@
+{
+  "language": "en",
+  "ignorePaths": [
+    "**/*.log",
+    ".claude/worktrees/**/*",
+    ".rumdl_cache/**/*",
+    ".vale/**/*",
+    "Cargo.lock",
+    "LICENSE",
+    "node_modules/**/*",
+    "target/**/*",
+    "tmp/**/*"
+  ],
+  "dictionaryDefinitions": [
+    {
+      "name": "proofhouse",
+      "path": "./.cspell-words.txt",
+      "addWords": true
+    }
+  ],
+  "dictionaries": ["proofhouse", "rust", "rust-crates"]
+}
