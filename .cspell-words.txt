@@ -30,6 +30,7 @@ RUSTFLAGS
 sandboxed
 shellcheck
 Swatinem
+taiki
 tbhb
 tmpl
 tombi

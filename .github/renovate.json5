@@ -1,0 +1,57 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+
+  // This repo's Renovate config is mostly shared org policy, pulled in via
+  // the extends preset in proofhouse/github-actions:
+  //
+  //   - renovate-config.json5 via extends — the repository-level rules plus
+  //     the Justfile and Vale custom managers shared by every repo.
+  //
+  // Renovate finds this repo's dependency files without any per-repo
+  // wiring: the cargo manager reads Cargo.toml and refreshes Cargo.lock as
+  // its update artifact, rust-toolchain reads the pinned toolchain file,
+  // github-actions reads the SHA pins in the workflows, and pre-commit
+  // reads the frozen hook revisions. Only the two Rust rules at the bottom
+  // stay inline.
+  //
+  // The global-only identity, rate limits, and requireConfig options are
+  // inlined here rather than pulled in via globalExtends: Renovate resolves
+  // globalExtends presets before it registers GITHUB_COM_TOKEN with its
+  // host-rules registry, so that preset fetch is always anonymous and
+  // intermittently trips GitHub's per-IP anonymous rate limit on shared
+  // runners (config-presets-invalid). extends is resolved later, at repo
+  // scope with token auth, so it is unaffected.
+  requireConfig: "ignored",
+  username: "proofhouse-renovate[bot]",
+  gitAuthor: "proofhouse-renovate[bot] <289255489+proofhouse-renovate[bot]@users.noreply.github.com>",
+  prConcurrentLimit: 0,
+  prHourlyLimit: 0,
+
+  extends: [
+    "github>proofhouse/github-actions//.github/renovate-config.json5",
+  ],
+
+  packageRules: [
+    // One review surface for every crate bump, the go-deps analog the
+    // shared Go preset gives the Go repos.
+    {
+      groupName: "rust-deps",
+      matchManagers: ["cargo"],
+    },
+  ],
+
+  // taiki-e/install-action `tool:` pins have no native manager; this
+  // matches the marker-comment pattern as workflows adopt the action.
+  customManagers: [
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      matchStrings: [
+        "#\\s*renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\s*\\n\\s*tool:\\s*[a-z0-9-]+@(?<currentValue>\\S+)",
+      ],
+    },
+  ],
+
+  // Single-repo scope. Global-only and differs per repo, so it stays inline.
+  repositories: ["proofhouse/proofhouse-rust-lib"],
+}
