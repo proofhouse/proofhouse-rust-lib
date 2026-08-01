@@ -379,6 +379,29 @@ lint-machete:
 lint-udeps:
     cargo +nightly udeps --workspace --all-targets
 
+# Hold the manifest to the compiler it names. `rust-version` is the
+# field a resolver downstream reads before it picks a release of this
+# library, which makes the number a promise to a caller rather than a
+# note to whoever works here. cargo msrv verify fetches the release
+# behind that promise and runs a check under it. Between the download
+# and a build from cold that costs minutes, so the aggregate above
+# leaves the recipe out and no hook reaches for it either.
+lint-msrv:
+    cargo msrv verify
+
+# The same promise read in seconds. cargo hack takes the floor off the
+# manifests and hands the check to that release through rustup, where
+# the verifier above has no published build to unpack and compiles
+# itself first. Both workspace members come along: the task runner
+# never ships, but whoever clones this tree builds it, and a floor it
+# misses is a floor nobody reaches. --all-targets carries the check
+# into the test targets, which is where the generator feature and the
+# interleaving models bring floors of their own. The merge path calls
+# this one; the recipe above is what answers after someone moves the
+# field by hand.
+lint-msrv-targets:
+    cargo hack check --workspace --rust-version --all-targets
+
 # Hunt for copy-pasted Rust. jscpd compares token streams rather than
 # lines, so a clone stays visible after its bindings are renamed and
 # its braces moved around. Settings live in .jscpd.json. Fifty tokens

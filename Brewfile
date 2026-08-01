@@ -1,6 +1,7 @@
 brew "biome"
 brew "cargo-binstall"
 brew "cargo-edit"
+brew "cargo-hack"
 brew "cargo-llvm-cov"
 brew "cargo-msrv"
 brew "cargo-nextest"

@@ -1,8 +1,9 @@
 ---
 # Main quality gate. Runs the full lint set, the module-structure
-# contracts, the Cargo.lock drift check, the test suite, and the
-# coverage measurement (the last two matrixed across linux/macOS/windows
-# native runners) on every pull request and every push to `main`.
+# contracts, the Cargo.lock drift check, the test suite, the coverage
+# measurement (the last two matrixed across linux/macOS/windows native
+# runners), and a build under the oldest compiler the manifests name,
+# on every pull request and every push to `main`.
 # Each gate runs as its own job so a flake in one block does not
 # require rerunning the others and the PR status surfaces which gate
 # fired.
@@ -501,3 +502,74 @@ jobs:
         run: |
           git fetch --no-tags origin "${{ github.base_ref }}"
           just cover-diff "origin/${{ github.base_ref }}"
+
+  # Every job above builds on the pinned compiler, which sits a minor
+  # release ahead of the one the manifests declare to whoever depends on
+  # this library. A dependency raising its own floor, or a language
+  # feature younger than the declared release, passes all of them and
+  # then meets the caller who took the declaration at face value. One
+  # Linux slot settles it: the same sources compile on all four, so a
+  # floor holding here holds everywhere.
+  msrv:
+    name: msrv
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Reads rust-toolchain.toml as the jobs above do. That compiler
+      # only reads the manifests and drives cargo hack; the check itself
+      # lands on the floor release the step further down installs.
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          cache: false
+
+      # Restores everywhere and writes back from `main` alone. The floor
+      # compiler fingerprints its own artifacts, so this slot fills a
+      # cache entry separate from the ones the jobs above keep.
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # A published build arrives ready to run, where the verifier a
+      # contributor uses locally would compile itself here first.
+      # Renovate owns the version through the marker above the input,
+      # and the action checks the download against the SHA256 the
+      # release carries.
+      - name: Install cargo tools
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        with:
+          # renovate: datasource=crate depName=cargo-hack
+          tool: cargo-hack@0.6.45
+
+      # Which release to fetch comes out of the manifests rather than
+      # out of this file. A number written here would part ways with
+      # Cargo.toml the first time someone moved the floor, and the gate
+      # would go on passing under a compiler nothing declares. Both
+      # members inherit the field from the workspace table, so a second
+      # answer means the manifests changed shape and the step stops
+      # instead of choosing between them.
+      - name: Install the floor toolchain
+        run: |
+          floor=$(cargo metadata --format-version 1 --no-deps | jq -er '
+            [.packages[].rust_version]
+            | unique
+            | if length == 1 then .[0]
+              else error("members declare more than one floor") end')
+          echo "Declared floor: $floor"
+          rustup toolchain install "$floor" --profile minimal
+
+      - name: Set up just
+        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+
+      - name: Check against the declared floor
+        run: just lint-msrv-targets
