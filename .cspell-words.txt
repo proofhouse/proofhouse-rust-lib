@@ -1,4 +1,5 @@
 AGENTMSG
+cocogitto
 codegen
 doctests
 EDITMSG
@@ -15,6 +16,7 @@ pyproject
 rlib
 rumdl
 RUSTFLAGS
+tbhb
 tmpl
 tombi
 venv

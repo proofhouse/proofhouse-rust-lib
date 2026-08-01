@@ -207,3 +207,25 @@ fix-markdown *args:
 # `just lint-prose`.
 vale-sync:
     vale sync
+
+# Generate the full CHANGELOG.md from Conventional Commit history.
+# `cog changelog` emits Markdown without an H1; the pipeline prepends
+# one and runs rumdl with MD024 (duplicate headings) disabled so
+# adjacent releases with the same section names don't fight the
+# linter.
+generate-changelog:
+    cog changelog | { echo "# Changelog"; cat; } | rumdl check -d MD024 --fix --stdin > CHANGELOG.md
+
+# Preview the changelog entries since the last tagged release. Useful
+# during release prep to see what `cog changelog` will emit before
+# committing the regeneration.
+preview-changelog:
+    cog changelog --at $(git describe --tags)..HEAD -t full_hash | rumdl check -d MD041 --fix --stdin
+
+# Generate release notes for a specific version (or for HEAD if no
+# version is given). Output goes to stdout; pipe to a file or paste
+# into the GitHub release body.
+[script]
+generate-release-notes version="":
+    v=$([[ -n "{{ version }}" ]] && echo "v{{ version }}" || echo "..$(git rev-parse HEAD)")
+    cog changelog --at $v -t full_hash | rumdl check -d MD024,MD041 --isolated --fix --stdin

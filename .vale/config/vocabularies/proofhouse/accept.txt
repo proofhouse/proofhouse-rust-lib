@@ -149,3 +149,5 @@ lockfile[s]?
 org's
 yamllint
 [Ll]ex(ed|ing)
+cocogitto
+CHANGELOG
