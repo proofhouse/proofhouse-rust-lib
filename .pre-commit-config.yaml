@@ -102,6 +102,20 @@ repos:
         types: [rust]
         pass_filenames: false
 
+      # Held back to the pre-push stage: clippy compiles the workspace,
+      # and a cold target directory turns that into minutes, which is
+      # more than a per-commit gate can ask for. always_run because the
+      # answer moves with Cargo.toml's lint tables and clippy.toml's
+      # thresholds as readily as with the sources, and a filename filter
+      # would let a config-only change through.
+      - id: clippy
+        name: clippy
+        entry: just lint-clippy
+        language: system
+        stages: [pre-push]
+        always_run: true
+        pass_filenames: false
+
       # Tree-wide .editorconfig enforcement. No types or files filter:
       # the gate spans every tracked file, so a newly added config or
       # fixture with CRLF endings or a missing final newline has to trip

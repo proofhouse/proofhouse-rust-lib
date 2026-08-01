@@ -1,0 +1,23 @@
+# clippy thresholds for the whole workspace. Kept at the workspace root
+# because clippy resolves this file from the crate directory upward and
+# reads the first one it finds, so the member crates inherit these
+# numbers without carrying copies.
+
+# Cognitive complexity budget per function. Fifteen is the number the
+# sibling repositories hold their own complexity gates to, which in turn
+# follows the value the metric's tooling has settled on.
+cognitive-complexity-threshold = 15
+
+# Depth of nested blocks a function may reach. Four levels of `if`,
+# `match`, and loop bodies is already hard to hold in the head; past
+# that, the body wants a helper.
+excessive-nesting-threshold = 4
+
+# Length budget per function, matching the same limit the sibling
+# repositories set on theirs.
+too-many-lines-threshold = 100
+
+# `unwrap()` stays denied in library code through the restriction group,
+# where a panic is a bug the caller cannot handle. A test that unwraps is
+# asserting the value is there, and the panic is the failure report.
+allow-unwrap-in-tests = true
