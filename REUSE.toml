@@ -79,6 +79,17 @@ path = ["AGENTS.md", "CLAUDE.md", ".claude/**"]
 SPDX-FileCopyrightText = "Copyright Authors of Proofhouse"
 SPDX-License-Identifier = "Apache-2.0"
 
+# Seed files the property suite writes beside itself the first time a
+# property fails. proptest asks for them in source control so the case
+# that broke once runs first ever after, and it appends to whatever is
+# already there, which leaves the file free to open with a header. The
+# entry stands ready either way, so a seed lands as a one-line diff
+# rather than a red gate.
+[[annotations]]
+path = ["tests/*.proptest-regressions"]
+SPDX-FileCopyrightText = "Copyright Authors of Proofhouse"
+SPDX-License-Identifier = "Apache-2.0"
+
 # cog rebuilds the changelog from commit history at every release, so
 # it lands without the inline header and is declared here instead.
 [[annotations]]

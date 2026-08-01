@@ -17,6 +17,15 @@ excessive-nesting-threshold = 4
 # repositories set on theirs.
 too-many-lines-threshold = 100
 
+# Crates the graph may resolve at two incompatible versions at once.
+# Both entries sit inside the search library's own tree, where a
+# temporary-file crate and a random-number crate reach for the same
+# randomness backend at different majors and that backend reaches for
+# the same firmware interface at different majors again. Nothing this
+# manifest declares can merge them, and naming the pair keeps the rest
+# of the graph under the check rather than turning it off wholesale.
+allowed-duplicate-crates = ["getrandom", "r-efi"]
+
 # `unwrap()` stays denied in library code through the restriction group,
 # where a panic is a bug the caller cannot handle. A test that unwraps is
 # asserting the value is there, and the panic is the failure report.

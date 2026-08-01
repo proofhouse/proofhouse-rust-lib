@@ -12,6 +12,10 @@ pub mod lexer;
 pub mod parser;
 pub mod sync;
 mod sync_shim;
+// Reaches a build only when someone asks for the generators, which is
+// what keeps the search library off the graph of an ordinary one.
+#[cfg(feature = "testing")]
+pub mod testing;
 pub mod tokens;
 
 /// Returns the crate version, resolved at compile time from the package

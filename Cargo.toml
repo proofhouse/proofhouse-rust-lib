@@ -10,6 +10,29 @@ publish.workspace = true
 [lints]
 workspace = true
 
+# The generator module is the one library file naming a search
+# library, and carrying it out to downstream suites would turn a test
+# dependency into an ordinary one. A feature keeps that bargain
+# optional: a default build pulls none of it, and a suite asking for
+# the strategies takes the search library along with them.
+[features]
+testing = ["dep:proptest"]
+
+# Here for the feature above alone, which is what makes the entry
+# optional rather than a plain requirement. The development table
+# cannot hold it instead: that table refuses an optional entry, and
+# nothing under it reaches a build of the library itself.
+[dependencies]
+proptest = { version = "1.11", optional = true }
+
+# The library depends on itself so its own suites reach the
+# strategies. Cargo reads the feature list here for every test target
+# and leaves an ordinary build alone, which is how one manifest both
+# offers a helper and consumes it. No companion derive crate joins it:
+# a strategy here is written out rather than derived from a type.
+[dev-dependencies]
+proofhouse-rust-lib = { path = ".", features = ["testing"] }
+
 # loom stands in for the standard library's threads and atomics when the
 # interleaving models run, and for nothing else: the dependency is
 # selected by a cfg no ordinary build sets, so a release of this library

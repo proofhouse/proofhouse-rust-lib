@@ -7,14 +7,16 @@
 // nowhere else, so each entry lists the layers open to it and every
 // other crate path is refused.
 //
-// Two layers stand over that pipeline and two off to the side. A table
-// of values already worked out needs the evaluator to fill an entry
-// and the formatter to name one, which puts it over both; the driver
-// that hands subtrees to worker threads needs the table, which puts it
-// over that. To the side sit the cell an entry is made of and the
-// module naming the primitives the cell is built from, neither of
+// Two layers stand over that pipeline and three off to the side. A
+// table of values already worked out needs the evaluator to fill an
+// entry and the formatter to name one, which puts it over both; the
+// driver that hands subtrees to worker threads needs the table, which
+// puts it over that. To the side sit the cell an entry is made of and
+// the module naming the primitives the cell is built from, neither of
 // which reaches into the pipeline at all, so they sit as low as the
-// errors do.
+// errors do. Beside those two sit the generators, which read three
+// stages of the pipeline to build inputs for it and which nothing in
+// the crate may read back.
 //
 // Naming what is open rather than what is shut is what makes this file
 // carry cycle-freedom between the layers: every crate-internal import
@@ -43,8 +45,10 @@
 // writes its layer down. Two modules share one rung of the order: one
 // reduces a tree to a value and one spells the same tree back out.
 // Their lists are the same list and neither one appears in it, which
-// is how the file says the readings are independent. A test helper
-// module lands later with a rule keeping every stage out of it.
+// is how the file says the readings are independent. One rule at the
+// end runs the other way round, naming what is shut rather than what
+// is open, because the module it shuts out has to stay shut to every
+// module at once, including the ones nobody has written yet.
 (
     lints: [
         Module((
@@ -256,6 +260,30 @@
             ],
         )),
         Module((
+            name: "generators_beside_the_pipeline",
+            matches: Module("^proofhouse_rust_lib::testing(::|$)"),
+            rules: [
+                // Building an input takes the node types to assemble,
+                // the token record to fill, and the rendering that
+                // turns a tree into text a reader accepts. What the
+                // list withholds is every stage that consumes such an
+                // input: a generator knowing what its output reduces
+                // to would be free to hand back only the cases that
+                // pass. The search library is the one path here from
+                // outside the crate, and the feature gating this
+                // module is what keeps it off an ordinary build.
+                RestrictImports(
+                    allowed_only: Some([
+                        "^(crate|proofhouse_rust_lib)::(ast|formatter|tokens)(::|$)",
+                        "^proptest(::|$)",
+                        "^$",
+                    ]),
+                    denied: None,
+                    severity: Error,
+                ),
+            ],
+        )),
+        Module((
             name: "errors_below_everything",
             matches: Module("^proofhouse_rust_lib::errors(::|$)"),
             rules: [
@@ -270,6 +298,28 @@
                         "^$",
                     ]),
                     denied: None,
+                    severity: Error,
+                ),
+            ],
+        )),
+        Module((
+            name: "no_stage_reaches_the_generators",
+            matches: Module("^proofhouse_rust_lib(::|$)"),
+            rules: [
+                // Generators exist for the suites that drive this
+                // crate from outside it. Every list above already
+                // withholds them; this says so once for the whole
+                // crate, so a module written later inherits the
+                // refusal rather than waiting for someone to place it
+                // in the order. An integration test compiles as its
+                // own crate and so never meets this rule, which is
+                // what leaves the suites free while the library stays
+                // shut.
+                RestrictImports(
+                    allowed_only: None,
+                    denied: Some([
+                        "^(crate|proofhouse_rust_lib)::testing(::|$)",
+                    ]),
                     severity: Error,
                 ),
             ],
