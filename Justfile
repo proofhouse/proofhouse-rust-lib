@@ -402,12 +402,14 @@ lint-workflows:
 # the way an editor does rather than by reading source text, so a
 # module a macro declares counts as reached.
 #
-# The same subcommand set offers a cycle check, which this recipe
-# leaves alone. It walks a graph whose nodes are items rather than
-# modules, and a type owning a method that names the type is a cycle
-# by that reading, so every crate with an impl block fails it. Upward
-# imports are what a module cycle needs, and `lint-pup` refuses those
-# one layer at a time.
+# Cycles are what this recipe says nothing about. The same subcommand
+# set offers that check and 0.26.0 cannot run it here: the search
+# covers the item graph before any filter narrows it, and a type owning
+# a method that names the type is a cycle by that reading, so every
+# crate with an impl block fails it. pup.ron carries cycle-freedom
+# instead, by listing per layer which layers are open to it — every
+# crate-internal import pointing down one order, no set of modules can
+# close a loop — and `lint-pup` below is what reads it.
 #
 # Neither this recipe nor `lint-pup` joins `lint-rs-all`, both being
 # far too expensive to install for the job every ordinary checker

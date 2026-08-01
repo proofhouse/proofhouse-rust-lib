@@ -165,11 +165,14 @@ jobs:
       # Both binaries are compiled here because neither has a prebuilt
       # channel to fetch from. The cache above holds ~/.cargo/bin, so a
       # run that restores it finds both already there and cargo says as
-      # much and stops; the compile is what a cache miss costs.
+      # much and stops; the compile is what a cache miss costs. Each
+      # version is written out, and each moves the way the nightly date
+      # above does: by hand, since no dependency manager reads a
+      # `cargo install` line.
       - name: Install the module checkers
         run: |
-          cargo install --locked cargo-modules
-          cargo +nightly-2026-01-22 install cargo_pup --locked
+          cargo install --locked cargo-modules --version 0.26.0
+          cargo +nightly-2026-01-22 install cargo_pup --version 0.1.8 --locked
 
       - name: Check for unreached modules
         run: just lint-arch

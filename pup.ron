@@ -2,85 +2,132 @@
 // parser runs the whole conversion, the syntax tree is what it hands
 // back, the lexer feeds it, tokens are what the lexer emits, and errors
 // sit beneath all of them because any stage may fail. A module may
-// reach downward and nowhere else, so each entry names the layers at or
-// above its own and refuses them. The parser gets no entry, having
-// nothing above it to refuse.
+// reach downward and nowhere else, so each entry lists the layers open
+// to it and every other crate path is refused.
+//
+// Naming what is open rather than what is shut is what makes this file
+// carry cycle-freedom between the layers: every crate-internal import
+// points down the order, and a set of modules whose edges all point one
+// way cannot close a loop. cargo-modules offers a cycle check that
+// would say the same from the other side, and 0.26.0 cannot say it: the
+// search runs across the item graph before any filter narrows it, and a
+// type owning a method that names the type back is a loop at that
+// width. Every crate with an impl block fails it, so the reading lives
+// here until the tool narrows first.
 //
 // Import paths are matched as they are written, so each pattern accepts
 // both the `crate::` prefix the sources use and the crate's own name.
-// Standard library imports go unmentioned and stay allowed everywhere.
+// A list of what is open has to name the standard library too, which
+// the deeper layers reach for as freely as the rest, and has to leave
+// room for the empty path an import reports for its own braces. Every
+// name inside those braces arrives on its own and spelled out in full,
+// which is where the reading happens. Each entry covers the module's
+// submodules along with the file itself, a reach being a reach whatever
+// depth it is written at.
 //
-// A module with no entry here answers to nothing, so the file grows
-// with the crate. An evaluator and a formatter arrive over the parser
-// as two leaves that may not see each other, and the test helper
+// A module with no entry here is not under the promise above, but
+// nothing that is may import it, so it stays a leaf until someone
+// writes its layer down. An evaluator and a formatter arrive over the
+// parser as two leaves that may not see each other, and the test helper
 // module lands with a rule keeping every stage out of it.
 (
     lints: [
         Module((
+            name: "parser_above_everything",
+            matches: Module("^proofhouse_rust_lib::parser(::|$)"),
+            rules: [
+                // The whole conversion runs from here, so every stage
+                // beneath is in reach and the list is all of them.
+                // What it turns away is a module nobody has placed
+                // yet, which would leave the top of the pipeline
+                // resting on something with no layer of its own.
+                RestrictImports(
+                    allowed_only: Some([
+                        "^(crate|proofhouse_rust_lib)::(ast|lexer|tokens|errors)(::|$)",
+                        "^std(::|$)",
+                        "^$",
+                    ]),
+                    denied: None,
+                    severity: Error,
+                ),
+            ],
+        )),
+        Module((
             name: "syntax_tree_below_the_parser",
-            matches: Module("^proofhouse_rust_lib::ast$"),
+            matches: Module("^proofhouse_rust_lib::ast(::|$)"),
             rules: [
                 // A tree of nodes is a value like any other. Producing
                 // one takes a lexer and a parser; being one takes
                 // neither, and the reach that would make it otherwise
-                // is what closes the pipeline into a loop.
+                // is what closes the pipeline into a loop. Errors stay
+                // open because a node may carry the position a failure
+                // points at.
                 RestrictImports(
-                    allowed_only: None,
-                    denied: Some([
-                        "^(crate|proofhouse_rust_lib)::(parser|lexer|tokens)(::|$)",
+                    allowed_only: Some([
+                        "^(crate|proofhouse_rust_lib)::errors(::|$)",
+                        "^std(::|$)",
+                        "^$",
                     ]),
+                    denied: None,
                     severity: Error,
                 ),
             ],
         )),
         Module((
             name: "lexer_below_the_syntax_tree",
-            matches: Module("^proofhouse_rust_lib::lexer$"),
+            matches: Module("^proofhouse_rust_lib::lexer(::|$)"),
             rules: [
                 // Scanning text into tokens is settled before a tree
-                // exists. Reading either the tree or the parser from
-                // here would make the first half of the pipeline
-                // depend on the second.
+                // exists, so the tokens it emits and the failures it
+                // raises are the whole of what it needs. Reading the
+                // tree or the parser from here would make the first
+                // half of the pipeline depend on the second.
                 RestrictImports(
-                    allowed_only: None,
-                    denied: Some([
-                        "^(crate|proofhouse_rust_lib)::(parser|ast)(::|$)",
+                    allowed_only: Some([
+                        "^(crate|proofhouse_rust_lib)::(tokens|errors)(::|$)",
+                        "^std(::|$)",
+                        "^$",
                     ]),
+                    denied: None,
                     severity: Error,
                 ),
             ],
         )),
         Module((
             name: "tokens_below_the_lexer",
-            matches: Module("^proofhouse_rust_lib::tokens$"),
+            matches: Module("^proofhouse_rust_lib::tokens(::|$)"),
             rules: [
                 // The token types describe what a lexer produces
-                // without knowing that a lexer is what produces them.
+                // without knowing that a lexer is what produces them,
+                // which leaves errors the one layer beneath them.
                 // Whoever writes the next producer inherits the same
                 // freedom.
                 RestrictImports(
-                    allowed_only: None,
-                    denied: Some([
-                        "^(crate|proofhouse_rust_lib)::(parser|ast|lexer)(::|$)",
+                    allowed_only: Some([
+                        "^(crate|proofhouse_rust_lib)::errors(::|$)",
+                        "^std(::|$)",
+                        "^$",
                     ]),
+                    denied: None,
                     severity: Error,
                 ),
             ],
         )),
         Module((
             name: "errors_below_everything",
-            matches: Module("^proofhouse_rust_lib::errors$"),
+            matches: Module("^proofhouse_rust_lib::errors(::|$)"),
             rules: [
                 // Every stage above reports failures through these
-                // types, which leaves this module the one place that
-                // may import none of them. An error type that reached
-                // back for a token or a node would drag the whole
-                // pipeline into whatever imports it.
+                // types, which leaves this module the one place with
+                // no crate path open to it at all. An error type that
+                // reached back for a token or a node would drag the
+                // whole pipeline into whatever imports it.
                 RestrictImports(
-                    allowed_only: None,
-                    denied: Some([
-                        "^(crate|proofhouse_rust_lib)::(parser|ast|lexer|tokens)(::|$)",
+                    allowed_only: Some([
+                        "^std(::|$)",
+                        "^$",
                     ]),
+                    denied: None,
                     severity: Error,
                 ),
             ],
