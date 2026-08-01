@@ -7,6 +7,9 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[lints]
+workspace = true
+
 [workspace]
 members = ["xtask"]
 
@@ -16,3 +19,67 @@ edition = "2024"
 rust-version = "1.96"
 license = "Apache-2.0"
 publish = false
+
+# Compiler lints raised to hard errors for every workspace member.
+# dead_code reports items nothing reaches; unreachable_pub reports items
+# marked `pub` that no path outside the crate can name, which is how an
+# internal helper quietly widens the published surface.
+[workspace.lints.rust]
+dead_code = "deny"
+unreachable_pub = "deny"
+
+# Every clippy group at once, restriction included, each sitting at
+# priority -1 so the individual entries further down win. The sibling
+# repositories select their whole rule catalog and then justify each
+# exception; this is that bargain in clippy's vocabulary. Warnings become
+# errors in the recipe rather than here, so a local `cargo clippy` still
+# prints the full list instead of stopping at the first one.
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+restriction = { level = "warn", priority = -1 }
+# Redundant with restriction, which already carries this lint, but the
+# explicit entry keeps the threshold in clippy.toml discoverable from the
+# manifest that turns the check on.
+cognitive_complexity = "warn"
+# Suppressions have to be `#[expect(..., reason = "...")]`: expect
+# expires with a compile error once the finding stops firing, and the
+# reason spares the next reader a git blame.
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+# Objects to selecting the restriction group wholesale, which is the
+# decision above.
+blanket_clippy_restriction_lints = "allow"
+# Pulls in the opposite direction from `needless_return` in the style
+# group; the tail expression stays.
+implicit_return = "allow"
+# Would force an empty trailing block wherever the remaining case is a
+# deliberate no-op, which `needless_else` then reports.
+else_if_without_else = "allow"
+# Wants every default trait method rewritten by hand, including the
+# deprecated `Error` accessors no caller should reach for.
+missing_trait_methods = "allow"
+# Inlining is a decision to make against a measurement, not a default to
+# stamp on every public item.
+missing_inline_in_public_items = "allow"
+# Alphabetical item order would scatter the operator variants away from
+# the order an expression grammar reads in.
+arbitrary_source_item_ordering = "allow"
+# Default binding modes are the idiom the rest of the language is
+# written in; spelling out `&` in every pattern buys nothing here.
+pattern_type_mismatch = "allow"
+# The enums and structs here are contracts callers match exhaustively.
+# Marking them `#[non_exhaustive]` would take that away.
+exhaustive_enums = "allow"
+exhaustive_structs = "allow"
+# Unit tests live in the file they cover so they can reach private
+# items, which means an inline `mod tests` in nearly every source file.
+inline_modules = "allow"
+# Both lints serve crates that build without the standard library. This
+# one links std by design.
+std_instead_of_core = "allow"
+std_instead_of_alloc = "allow"
+# Penalizes splitting a readable helper out of its one caller.
+single_call_fn = "allow"

@@ -154,3 +154,6 @@ CHANGELOG
 Brewfile
 editorconfig
 [Rr]ustfmt
+[Cc]lippy
+[Ee]num[s]?
+[Ss]uppression[s]?

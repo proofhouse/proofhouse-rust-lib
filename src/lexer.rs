@@ -17,13 +17,21 @@ use crate::tokens::{Token, TokenKind};
 ///
 /// Returns a [`LexError`] naming the byte offset and the character when the
 /// input holds anything that can't begin a token.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "the offsets and lengths added here index a string already in memory"
+)]
+#[expect(
+    clippy::string_slice,
+    reason = "both bounds come from char_indices, so they sit on character boundaries"
+)]
 pub fn tokenize(text: &str) -> Result<Vec<Token>, LexError> {
     let mut tokens = Vec::new();
     let mut chars = text.char_indices().peekable();
     while let Some((offset, ch)) = chars.next() {
         if ch.is_ascii_digit() {
             let mut end = offset + ch.len_utf8();
-            while let Some((idx, digit)) = chars.next_if(|&(_, c)| c.is_ascii_digit()) {
+            while let Some((idx, digit)) = chars.next_if(|&(_, next)| next.is_ascii_digit()) {
                 end = idx + digit.len_utf8();
             }
             tokens.push(Token {

@@ -16,6 +16,10 @@ pub struct LexError {
 }
 
 impl fmt::Display for LexError {
+    #[expect(
+        clippy::use_debug,
+        reason = "the quoted Debug rendering is what keeps a stray control character legible"
+    )]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -62,7 +66,7 @@ impl From<LexError> for ExpressionError {
 #[cfg(test)]
 mod tests {
     use super::{ExpressionError, LexError};
-    use std::error::Error;
+    use std::error::Error as _;
 
     #[test]
     fn lex_error_display_names_character_and_offset() {
@@ -82,7 +86,9 @@ mod tests {
         let wrapped = ExpressionError::from(inner);
         assert_eq!(wrapped, ExpressionError::Lex(inner));
         assert_eq!(wrapped.to_string(), inner.to_string());
-        let source = wrapped.source().and_then(|e| e.downcast_ref::<LexError>());
+        let source = wrapped
+            .source()
+            .and_then(|err| err.downcast_ref::<LexError>());
         assert_eq!(source, Some(&inner));
     }
 }

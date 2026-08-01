@@ -186,13 +186,14 @@ lock-check:
 # --- Lint ---
 
 # Aggregator over the Rust-flavored lint sub-recipes: the rustfmt drift
-# check, and actionlint over the workflow files. Carved out so a
-# contributor working on the crate can rerun the compiler-adjacent
-# gates without paying for the whole text-quality toolchain; each new
-# Rust gate appends itself here. actionlint rides along even though it
-# reads YAML rather than Rust — it belongs to the same per-pull-request
-# gate set, and the sibling repos give it the same slot.
-lint-rs-all: lint-rs-format lint-workflows
+# check, clippy across every lint group, and actionlint over the
+# workflow files. Carved out so a contributor working on the crate can
+# rerun the compiler-adjacent gates without paying for the whole
+# text-quality toolchain; each new Rust gate appends itself here.
+# actionlint rides along even though it reads YAML rather than Rust — it
+# belongs to the same per-pull-request gate set, and the sibling repos
+# give it the same slot.
+lint-rs-all: lint-rs-format lint-clippy lint-workflows
 
 # Aggregate lint gate. Every checker the repo gains hangs off this one
 # recipe, so there is a single command to run them all. The Rust gates
@@ -207,6 +208,16 @@ lint: lint-rs-all lint-prose lint-spelling lint-markdown lint-config lint-yaml l
 # reaches the xtask member alongside the library crate.
 lint-rs-format:
     cargo fmt --all --check
+
+# Run clippy over every workspace member, every target, and every
+# feature. The lint selection lives in Cargo.toml's workspace lints
+# tables and the thresholds in clippy.toml; the groups are configured as
+# warnings there so an interactive run prints the whole list, and this
+# recipe supplies the -D that turns any one of them into a failure. Tests
+# and examples come along through --all-targets, which is where the
+# gate would otherwise go blind.
+lint-clippy:
+    cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 # Lint prose in Markdown files and source comments via vale. The glob
 # drops the LICENSE (canonical Apache 2.0 text), the generated

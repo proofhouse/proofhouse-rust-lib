@@ -24,7 +24,7 @@ mod tests {
         assert_eq!(parts.len(), 3, "version is not a three-part semver");
         for part in parts {
             assert!(
-                !part.is_empty() && part.chars().all(|c| c.is_ascii_digit()),
+                !part.is_empty() && part.chars().all(|ch| ch.is_ascii_digit()),
                 "version component `{part}` is not all digits"
             );
         }
