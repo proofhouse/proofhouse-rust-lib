@@ -95,10 +95,15 @@ setup:
 install-brew:
     brew bundle check || brew bundle install
 
-# Refresh non-brew tooling. Today that means Vale's synced style
-# packages; grows as new sync-style tools land.
+# Refresh non-brew tooling: Vale's synced style packages, plus the
+# cargo-installed checkers Homebrew carries no formula for. Those float
+# to whatever the registry serves, the way a brew formula tracks
+# upstream on a working machine. The pull request gate installs a
+# written-down version instead, so a merge decision always names the
+# release behind it.
 install-tools:
     vale sync
+    cargo install --locked cargo-machete
 
 # --- Build ---
 
@@ -186,14 +191,15 @@ lock-check:
 # --- Lint ---
 
 # Aggregator over the Rust-flavored lint sub-recipes: the rustfmt drift
-# check, clippy across every lint group, the documentation render, and
-# actionlint over the workflow files. Carved out so a contributor
-# working on the crate can rerun the compiler-adjacent gates without
-# paying for the whole text-quality toolchain; each new Rust gate
-# appends itself here. actionlint rides along even though it reads YAML
-# rather than Rust — it belongs to the same per-pull-request gate set,
-# and the sibling repos give it the same slot.
-lint-rs-all: lint-rs-format lint-clippy lint-docs lint-workflows
+# check, clippy across every lint group, the documentation render, the
+# unused-dependency scan, and actionlint over the workflow files. Carved
+# out so a contributor working on the crate can rerun the
+# compiler-adjacent gates without paying for the whole text-quality
+# toolchain; each new Rust gate appends itself here. actionlint rides
+# along even though it reads YAML rather than Rust — it belongs to the
+# same per-pull-request gate set, and the sibling repos give it the same
+# slot.
+lint-rs-all: lint-rs-format lint-clippy lint-docs lint-machete lint-workflows
 
 # Aggregate lint gate. Every checker the repo gains hangs off this one
 # recipe, so there is a single command to run them all. The Rust gates
@@ -228,6 +234,17 @@ lint-clippy:
 # run on this workspace instead of re-rendering the dependency graph.
 lint-docs:
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+
+# Report dependencies the manifests declare and no source file names.
+# machete searches the sources for each crate's identifier instead of
+# building anything, which is what keeps it in a gate that runs on every
+# pull request; the price is the odd miss on a crate reached through a
+# macro. Proving the negative takes a compiler, and a run that slow
+# belongs on a schedule of its own. --with-metadata would buy some of
+# that accuracy by resolving the graph through cargo, at the risk of
+# rewriting Cargo.lock from under a read-only gate, so it stays off.
+lint-machete:
+    cargo machete
 
 # Lint prose in Markdown files and source comments via vale. The glob
 # drops the LICENSE (canonical Apache 2.0 text), the generated
