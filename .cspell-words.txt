@@ -1,10 +1,15 @@
 AGENTMSG
+autostash
+backticked
 binstall
+buildmeta
 cocogitto
 codegen
+commitlint
 doctests
 EDITMSG
 GOPATH
+hardwrap
 libproofhouse
 lockfiles
 mktemp
@@ -20,7 +25,9 @@ RUSTFLAGS
 tbhb
 tmpl
 tombi
+Tricolon
 venv
+worktree
 worktrees
 xtask
 yamllintignore

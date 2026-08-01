@@ -190,6 +190,18 @@ lint-toml:
     tombi format --check --diff
     tombi lint --offline --error-on-warnings
 
+# Pre-validate a drafted commit message against the same gates the
+# commit-msg hook runs, so message problems surface while iterating
+# rather than at commit time. Reads the draft from the repo-root
+# COMMIT_AGENTMSG file (gitignored; see AGENTS.md for the workflow) and
+# runs the commit-msg stage through prek, which fires the four shared
+# hooks from proofhouse/pre-commit-hooks: commit-trailers, commitlint,
+# vale-commit-msg, and cspell-commit-msg. The real gate stays the prek
+# commit-msg hook on .git/COMMIT_EDITMSG; this recipe only mirrors it.
+# Commit the validated draft with `git commit -F COMMIT_AGENTMSG`.
+lint-commit-msg:
+    prek run --stage commit-msg --commit-msg-filename COMMIT_AGENTMSG
+
 # --- Format ---
 
 # Aggregate in-place formatter. Grows per gate; carries the Markdown, JSON, and
@@ -225,6 +237,22 @@ fix-markdown *args:
 # `just lint-prose`.
 vale-sync:
     vale sync
+
+# Run pre-commit hooks on changed files (the everyday invocation).
+prek:
+    prek
+
+# Run pre-commit hooks on every file in the tree. Useful after a
+# hook config change or before a release sweep.
+prek-all:
+    prek run --all-files
+
+# Install the project's pre-commit hooks (commit-msg, pre-commit,
+# pre-push). New contributors run this once after `just setup`; the
+# `just setup` recipe does NOT run it automatically because installing
+# hooks modifies .git/ and contributors may prefer to opt in.
+prek-install:
+    prek install -t commit-msg -t pre-commit -t pre-push
 
 # Generate the full CHANGELOG.md from Conventional Commit history.
 # `cog changelog` emits Markdown without an H1; the pipeline prepends
