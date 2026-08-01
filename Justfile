@@ -119,8 +119,8 @@ lock-check:
 
 # Aggregate lint gate. Every checker the repo gains hangs off this one
 # recipe, so there is a single command to run them all. Prose, spelling,
-# Markdown, and TOML are its members today.
-lint: lint-prose lint-spelling lint-markdown lint-toml
+# Markdown, JSON, and TOML are its members today.
+lint: lint-prose lint-spelling lint-markdown lint-config lint-toml
 
 # Lint prose in Markdown files and source comments via vale. The glob
 # drops the LICENSE (canonical Apache 2.0 text), the generated
@@ -150,6 +150,12 @@ lint-spelling *args:
 lint-markdown *args:
     rumdl check {{ if args == "" { "." } else { args } }}
 
+# Lint JSON / JS / TS files via biome. Recommended ruleset, biome's
+# own formatter; covers config files (biome.json, .cspell.jsonc) and
+# any future scripts under .github/actions/.
+lint-config *args:
+    biome check --files-ignore-unknown=true {{ if args == "" { "." } else { args } }}
+
 # tombi is the org TOML gate (tombi 1.2.0): lint-checks Cargo.toml (validated offline
 # against the embedded SchemaStore cargo.json), rust-toolchain.toml, .cargo/config.toml,
 # and workspace member manifests. Format gate runs in --check --diff so unformatted TOML
@@ -162,14 +168,18 @@ lint-toml:
 
 # --- Format ---
 
-# Aggregate in-place formatter. Grows per gate; carries the Markdown and TOML
-# fixers today.
-format: format-markdown format-toml
+# Aggregate in-place formatter. Grows per gate; carries the Markdown, JSON, and
+# TOML fixers today.
+format: format-markdown format-config format-toml
 
 # Format Markdown files (whitespace, list markers, code fence styles).
 # Rewrites in place. Pair with `fix-markdown` for semantic lint fixes.
 format-markdown *args:
     rumdl fmt {{ if args == "" { "." } else { args } }}
+
+# Format JSON / JS / TS files in place via biome's formatter.
+format-config *args:
+    biome format --write {{ if args == "" { "." } else { args } }}
 
 # In-place TOML formatter — fixer paired with lint-toml's --check gate. Whitespace/style
 # only; key order preserved (reordering disabled in tombi.toml).
