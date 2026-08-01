@@ -55,6 +55,10 @@ blanket_clippy_restriction_lints = "allow"
 # Pulls in the opposite direction from `needless_return` in the style
 # group; the tail expression stays.
 implicit_return = "allow"
+# Objects to the `?` operator, which is how every fallible function here
+# hands an error back to its caller. Spelling each one out as a match on
+# the result would bury the work the function exists to do.
+question_mark_used = "allow"
 # Would force an empty trailing block wherever the remaining case is a
 # deliberate no-op, which `needless_else` then reports.
 else_if_without_else = "allow"
