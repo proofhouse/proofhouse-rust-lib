@@ -223,6 +223,15 @@ jobs:
           - ubuntu-24.04-arm
           - macos-15
           - windows-2025
+    # Draws this many inputs per property, four times what a property
+    # takes when nothing sets the variable. Widening the search costs
+    # seconds on a suite this small, and the run someone sits and waits
+    # for locally is not the one worth widening. The coverage matrix
+    # leaves the count alone: a branch turns up in the first handful of
+    # draws or never, so raising it there buys wall-clock rather than
+    # coverage.
+    env:
+      PROPTEST_CASES: "1024"
     steps:
       # harden-runner's egress monitoring is built on Linux kernel
       # facilities, so the macOS and Windows slots skip it.

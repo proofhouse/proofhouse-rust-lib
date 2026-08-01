@@ -349,9 +349,11 @@ lint-clippy:
 # link or an unparsable example would sit unread until someone opened
 # the crate. Lint levels come from the rustdoc table in Cargo.toml;
 # RUSTDOCFLAGS catches whatever warns outside it. --no-deps keeps the
-# run on this workspace instead of re-rendering the dependency graph.
+# run on this workspace instead of re-rendering the dependency graph,
+# and --all-features reaches the module a feature gate would otherwise
+# leave out, whose pages answer to these levels like any other.
 lint-docs:
-    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
 
 # Report dependencies the manifests declare and no source file names.
 # machete searches the sources for each crate's identifier instead of
@@ -530,9 +532,11 @@ lint-arch:
 # the tool. The same nightly predates the minimum release this crate
 # supports, hence the flag waving that floor through — the run
 # type-checks the crate to inspect it and produces nothing anyone
-# installs. Get the toolchain and the plugin with `install-pup`.
+# installs. Every feature comes on for the run, a module left out of
+# the compilation being a module whose entry in the contract says
+# nothing. Get the toolchain and the plugin with `install-pup`.
 lint-pup:
-    cargo +nightly-2026-01-22 pup check --ignore-rust-version
+    cargo +nightly-2026-01-22 pup check --ignore-rust-version --all-features
 
 # Pre-validate a drafted commit message against the same gates the
 # commit-msg hook runs, so message problems surface while iterating

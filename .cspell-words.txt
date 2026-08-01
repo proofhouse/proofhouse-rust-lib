@@ -26,6 +26,7 @@ peekable
 pipefail
 prek
 proofhouse
+proptest
 pyproject
 rhysd
 rlib

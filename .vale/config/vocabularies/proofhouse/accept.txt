@@ -167,3 +167,4 @@ nextest
 JUnit
 lcov
 [Tt]racefiles?
+proptest
