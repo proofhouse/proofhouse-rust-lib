@@ -178,15 +178,20 @@ build-repro-check:
 
 # --- Test ---
 
-# Run the test suite. Trailing arguments pass through to cargo test, so
-# `just test <name>` filters and `just test -- --nocapture` reaches the
-# harness.
+# Run the test suite under nextest, which starts a process per test.
+# One test taking its process down is then that test failing, not the
+# end of the binary's run, and what comes back names every failure
+# rather than the earliest one. Both workspace members are in scope.
+# Profiles live in .config/nextest.toml and the merge path names the
+# stricter of them on the command line. Trailing arguments pass through,
+# so `just test <name>` filters.
 test *args:
-    cargo test "$@"
+    cargo nextest run --workspace "$@"
 
-# Run the doctests. Kept out of `test` because the coverage-oriented
-# test runner that lands later cannot execute doctests, so they need
-# their own entry point to stay exercised.
+# Run the doctests. The runner above reaches none of them: rustdoc
+# exposes no stable entry point another harness can drive, and the
+# request to build one has sat open since 2022. Documentation examples
+# depend on this recipe and a merge-path step of its own to run at all.
 test-doc:
     cargo test --doc
 
@@ -210,7 +215,7 @@ test-doc:
 # find nothing further. That cost is why this stays a recipe the pull
 # request gate calls rather than a hook every push waits on.
 test-loom:
-    RUSTFLAGS="--cfg loom" LOOM_MAX_PREEMPTIONS=3 cargo test --test loom
+    RUSTFLAGS="--cfg loom" LOOM_MAX_PREEMPTIONS=3 cargo nextest run -p proofhouse-rust-lib --test loom
 
 # --- Dependencies ---
 

@@ -257,11 +257,26 @@ jobs:
       - name: Set up just
         uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
 
+      # The test runner ships a build for each platform in the matrix,
+      # and the action reads the SHA256 the release carries before it
+      # unpacks a download. Renovate owns the version through the marker
+      # comment on the line above it.
+      - name: Install cargo tools
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        with:
+          # renovate: datasource=crate depName=cargo-nextest
+          tool: cargo-nextest@0.9.140
+
+      # The ci profile in .config/nextest.toml keeps the run going past
+      # the first failure and writes a JUnit report. Naming it here
+      # rather than through an environment variable leaves the choice
+      # visible in the step's own log.
       - name: Run tests
-        run: just test
+        run: just test --profile ci
 
       # Doctests need their own invocation: the recipe pair exists
-      # because `cargo test` and `cargo test --doc` cover disjoint sets.
+      # because the runner above reaches no example inside a doc
+      # comment.
       - name: Run doctests
         run: just test-doc
 
@@ -306,6 +321,15 @@ jobs:
 
       - name: Set up just
         uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+
+      # The recipe below drives the models through the same runner the
+      # matrix job uses, so this slot needs the binary too. Version and
+      # marker match what that job pins.
+      - name: Install cargo tools
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        with:
+          # renovate: datasource=crate depName=cargo-nextest
+          tool: cargo-nextest@0.9.140
 
       - name: Run the interleaving models
         run: just test-loom

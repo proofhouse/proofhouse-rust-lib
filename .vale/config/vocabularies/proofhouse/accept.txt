@@ -163,3 +163,5 @@ rustc
 udeps
 [Ss]ubexpression[s]?
 [Ii]nitializer[s]?
+nextest
+JUnit

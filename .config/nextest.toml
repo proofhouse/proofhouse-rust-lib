@@ -1,0 +1,25 @@
+# Settings for the test runner. Nothing here touches the default
+# profile, so a run started by hand behaves the way the runner's own
+# manual describes it. The profile below gathers what a run on the merge
+# path wants instead, and the workflow asks for it by name.
+#
+# No schema is published for this file, so the TOML gate reads it for
+# syntax and layout and nothing further.
+
+[profile.ci]
+# Keep going after a test fails. Reaching the first assertion of a
+# remote run costs minutes, and whoever opens the log afterward wants
+# the whole list rather than the earliest name on it.
+fail-fast = false
+
+# Give a failing test no second attempt. One would turn a test that
+# fails a run in five into a green check and file the nondeterminism
+# somewhere nobody looks. The runner already does this much on its own;
+# spelling the key out marks it as a choice made here.
+retries = 0
+
+[profile.ci.junit]
+# Results in a shape a machine can read. The path resolves under the
+# profile's store directory, which puts the report inside the build tree
+# the ignore file already covers.
+path = "junit.xml"

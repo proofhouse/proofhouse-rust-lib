@@ -18,6 +18,7 @@ linuxbrew
 lockfiles
 matrixed
 mktemp
+nextest
 nocapture
 orbstack
 osxkeychain
