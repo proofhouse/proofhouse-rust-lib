@@ -23,9 +23,15 @@ publish = false
 # Compiler lints raised to hard errors for every workspace member.
 # dead_code reports items nothing reaches; unreachable_pub reports items
 # marked `pub` that no path outside the crate can name, which is how an
-# internal helper quietly widens the published surface.
+# internal helper quietly widens the published surface. missing_docs
+# holds the published surface to a doc comment apiece: a reference
+# library is read as much as it is called, and an undocumented public
+# item is a gap in what it teaches. The task runner inherits the rule
+# without consequence, having no public item beyond the module comment
+# it already carries.
 [workspace.lints.rust]
 dead_code = "deny"
+missing_docs = "deny"
 unreachable_pub = "deny"
 
 # Every clippy group at once, restriction included, each sitting at
@@ -87,3 +93,26 @@ std_instead_of_core = "allow"
 std_instead_of_alloc = "allow"
 # Penalizes splitting a readable helper out of its one caller.
 single_call_fn = "allow"
+
+# Rustdoc's own diagnostics, raised past the warning level most of them
+# ship at. Each one marks documentation that still renders and still
+# misleads — a link whose target no longer exists, an example the
+# doctest harness never compiles because rustdoc could not parse it, an
+# open HTML tag that swallows the text behind it, a backtick with no
+# partner. The rendered page looks finished in every one of those cases,
+# which is why the compiler has to be the one to notice.
+#
+# Two entries stay out. private_doc_tests would reject an example on a
+# private item, and an internal helper is often exactly where an example
+# is worth writing. missing_doc_code_examples has yet to leave nightly
+# and a release toolchain refuses to load it.
+[workspace.lints.rustdoc]
+bare_urls = "deny"
+broken_intra_doc_links = "deny"
+invalid_codeblock_attributes = "deny"
+invalid_html_tags = "deny"
+invalid_rust_codeblocks = "deny"
+missing_crate_level_docs = "deny"
+private_intra_doc_links = "deny"
+redundant_explicit_links = "deny"
+unescaped_backticks = "deny"

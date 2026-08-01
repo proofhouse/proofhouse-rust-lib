@@ -186,14 +186,14 @@ lock-check:
 # --- Lint ---
 
 # Aggregator over the Rust-flavored lint sub-recipes: the rustfmt drift
-# check, clippy across every lint group, and actionlint over the
-# workflow files. Carved out so a contributor working on the crate can
-# rerun the compiler-adjacent gates without paying for the whole
-# text-quality toolchain; each new Rust gate appends itself here.
-# actionlint rides along even though it reads YAML rather than Rust — it
-# belongs to the same per-pull-request gate set, and the sibling repos
-# give it the same slot.
-lint-rs-all: lint-rs-format lint-clippy lint-workflows
+# check, clippy across every lint group, the documentation render, and
+# actionlint over the workflow files. Carved out so a contributor
+# working on the crate can rerun the compiler-adjacent gates without
+# paying for the whole text-quality toolchain; each new Rust gate
+# appends itself here. actionlint rides along even though it reads YAML
+# rather than Rust — it belongs to the same per-pull-request gate set,
+# and the sibling repos give it the same slot.
+lint-rs-all: lint-rs-format lint-clippy lint-docs lint-workflows
 
 # Aggregate lint gate. Every checker the repo gains hangs off this one
 # recipe, so there is a single command to run them all. The Rust gates
@@ -218,6 +218,16 @@ lint-rs-format:
 # gate would otherwise go blind.
 lint-clippy:
     cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+# Render the workspace documentation and let the render itself be the
+# gate. Nothing about these pages is published — the manifest turns
+# publishing off, so no docs.rs build stands behind them and a broken
+# link or an unparsable example would sit unread until someone opened
+# the crate. Lint levels come from the rustdoc table in Cargo.toml;
+# RUSTDOCFLAGS catches whatever warns outside it. --no-deps keeps the
+# run on this workspace instead of re-rendering the dependency graph.
+lint-docs:
+    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 
 # Lint prose in Markdown files and source comments via vale. The glob
 # drops the LICENSE (canonical Apache 2.0 text), the generated

@@ -157,3 +157,4 @@ editorconfig
 [Cc]lippy
 [Ee]num[s]?
 [Ss]uppression[s]?
+[Rr]ustdoc
