@@ -1,0 +1,169 @@
+---
+# Main quality gate. Runs the full lint set, the Cargo.lock drift
+# check, and the test suite (matrixed across linux/macOS/windows
+# native runners) on every pull request and every push to `main`.
+# Each gate runs as its own job so a flake in one block does not
+# require rerunning the others and the PR status surfaces which gate
+# fired.
+# The text-quality lint set (vale, cspell, rumdl, biome, yamllint,
+# tombi) rides in one job off the Brewfile toolchain.
+#
+# Every job installs `just` from a SHA-pinned casey/just release
+# tarball, verifies the bundled SHA256SUMS, and then invokes the
+# matching `just <recipe>` so the recipe is the single source of
+# truth for what the gate runs.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Invokes only the `lint` aggregator recipe, so the job stays
+  # unchanged as new gates land — each gate appends itself to the
+  # aggregator in the Justfile instead. Those gates (prose, spelling,
+  # Markdown, JSON, YAML, TOML) used to run only through the local
+  # pre-commit hooks, which `git commit --no-verify` walks straight
+  # past, so nothing on the merge path read them. None of the tools
+  # they need is a cargo dependency, so the job installs the Brewfile
+  # toolchain and syncs the Vale styles first.
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up just
+        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+
+      # The ubuntu-24.04 image ships Homebrew but leaves its prefix off
+      # the PATH, so expose the bin and sbin directories before any brew
+      # invocation.
+      - name: Put Homebrew on the PATH
+        run: echo "/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin" >> "$GITHUB_PATH"
+
+      # The image pins an older Homebrew and sets HOMEBREW_NO_AUTO_UPDATE,
+      # but `brew bundle` reads formula metadata from the JSON API, which
+      # serves current definitions. ca-certificates now declares a `run`
+      # install step that the pinned Homebrew cannot parse, failing every
+      # formula that depends on it. Update Homebrew itself first.
+      - name: Update Homebrew
+        run: brew update
+
+      # Brings in vale, cspell, rumdl, biome, yamllint, and tombi,
+      # alongside the rustup and cargo helpers later recipes reach for.
+      # The Brewfile also names just, which the setup step above already
+      # installed; letting brew reinstall it costs less than keeping a
+      # second, partial dependency list in step with the first.
+      - name: Install Homebrew dependencies
+        run: brew bundle install
+
+      # Vale's style packages are downloaded, not vendored, so
+      # `lint-prose` fails on a bare checkout without this.
+      - name: Sync Vale styles
+        run: just install-tools
+
+      - name: Run lint gates
+        run: just lint
+
+  # Fails the merge when Cargo.lock no longer matches the manifests, so
+  # every change to the dependency closure arrives as a reviewable lock
+  # diff rather than resolving differently on each machine.
+  lock-check:
+    name: lock-check
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # No toolchain input: the action reads rust-toolchain.toml and
+      # installs the version pinned there, which is the same resolution
+      # a contributor's rustup performs inside the repo.
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+
+      - name: Set up just
+        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+
+      - name: Check lock drift
+        run: just lock-check
+
+  test:
+    name: "test (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform's failure should not hide the others: a bug that
+      # only shows up on Windows is worth seeing next to a green macOS
+      # slot, not instead of it.
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - macos-15
+          - windows-2025
+    steps:
+      # harden-runner's egress monitoring is built on Linux kernel
+      # facilities, so the macOS and Windows slots skip it.
+      - name: Harden the runner
+        if: runner.os == 'Linux'
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Caching is turned off here and handed to the explicit step
+      # below, because the action's built-in wiring saves a fresh cache
+      # from every branch and this repo wants writes from `main` only.
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          cache: false
+
+      # Every slot restores the registry and target directories; only
+      # pushes to `main` write a new entry back. Pull request runs would
+      # otherwise each save a near-identical cache and evict the warm
+      # one their own next run wants to read.
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Set up just
+        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+
+      - name: Run tests
+        run: just test
+
+      # Doctests need their own invocation: the recipe pair exists
+      # because `cargo test` and `cargo test --doc` cover disjoint sets.
+      - name: Run doctests
+        run: just test-doc

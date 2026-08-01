@@ -11,7 +11,9 @@ EDITMSG
 GOPATH
 hardwrap
 libproofhouse
+linuxbrew
 lockfiles
+matrixed
 mktemp
 nocapture
 peekable
@@ -22,6 +24,7 @@ pyproject
 rlib
 rumdl
 RUSTFLAGS
+Swatinem
 tbhb
 tmpl
 tombi
