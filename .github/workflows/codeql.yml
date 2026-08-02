@@ -1,0 +1,81 @@
+---
+# Static analysis of the crate sources and of the workflow files that
+# drive them. Pull requests and pushes to `main` are analyzed as they
+# arrive, and a weekly pass repeats the work over a tree nobody
+# touched, since the query packs keep moving after a commit lands and
+# a finding can show up without the code changing. Results reach the
+# code scanning dashboard as SARIF.
+#
+# Neither matrix slot builds anything. The Rust extractor takes the
+# sources and the manifests as they sit in the checkout, and the
+# actions extractor parses YAML. Nothing here invokes cargo, so the
+# analysis owes nothing to the toolchain the rest of the pipeline
+# pins and cannot be brought down by a compile error the other jobs
+# are already reporting.
+#
+# Queries come from `security-extended`, which reaches past the
+# default security suite. Leaving out the code quality suite is
+# deliberate. Clippy already runs in ci.yml with warnings denied and
+# the pedantic, nursery, cargo and restriction groups enabled, and a
+# second opinion on style would fill the Security tab with what the
+# lint job says first. A finding here never fails the run.
+
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, Sunday 06:33 UTC. Away from the top of the hour and
+    # away from the minutes the sibling repositories already hold, so
+    # this analysis waits behind nothing.
+    - cron: "33 6 * * 0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: "analyze (${{ matrix.language }})"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: rust
+            build-mode: none
+          - language: actions
+            build-mode: none
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-extended
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          category: "/language:${{ matrix.language }}"
