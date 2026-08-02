@@ -327,7 +327,26 @@ cover-diff base="origin/main":
 gitleaks:
     {{ gitleaks_scan }} git --verbose .
 
-security: gitleaks
+# Put four questions to the resolved dependency graph in one run.
+# Every version is graded against the RustSec advisory database, the
+# feed answering for Rust crates where pip-audit answers for Python
+# packages in the sibling repositories. Every license the transitive
+# tree carries has to sit on an allow-list, which is the reading
+# `lint-reuse` cannot give: that recipe asks the files here who holds
+# them and under what terms, and this one asks the same of what
+# arrives from elsewhere. A crate resolving to two versions at once
+# fails unless deny.toml names the pair, and a crate resolving from
+# anywhere but crates.io fails outright. All of the policy sits in
+# deny.toml and the recipe only decides when it gets read.
+audit:
+    cargo deny check
+
+# Both scanners behind one name, reached before a push rather than on
+# every commit. Old diffs go past the credential detector and the
+# resolved graph goes past the advisory database and the policy file
+# beside it. Naming the two flat rather than threading one through the
+# other leaves a failure attributable to whichever run raised it.
+security: gitleaks audit
 
 # --- Dependencies ---
 

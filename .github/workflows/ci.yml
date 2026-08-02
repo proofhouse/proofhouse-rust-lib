@@ -1,9 +1,10 @@
 ---
 # Main quality gate. Runs the full lint set, the module-structure
-# contracts, the Cargo.lock drift check, the test suite, the coverage
-# measurement (the last two matrixed across linux/macOS/windows native
-# runners), and a build under the oldest compiler the manifests name,
-# on every pull request and every push to `main`.
+# contracts, the Cargo.lock drift check, the dependency policy audit,
+# the test suite and the coverage measurement (both matrixed across
+# linux/macOS/windows native runners), the interleaving models, and a
+# build under the oldest compiler the manifests name, on every pull
+# request and every push to `main`.
 # Each gate runs as its own job so a flake in one block does not
 # require rerunning the others and the PR status surfaces which gate
 # fired.
@@ -209,6 +210,61 @@ jobs:
 
       - name: Check lock drift
         run: just lock-check
+
+  # The blocking half of the dependency security story: an advisory
+  # against a resolved version, a license off the allow-list, a
+  # duplicate crate version deny.toml does not name, or a source
+  # outside crates.io stops the merge here. The reporting half sits in
+  # a workflow of its own, where a scanner writes what it finds to code
+  # scanning rather than holding a pull request.
+  audit:
+    name: audit
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Harden the runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Reads the pinned toolchain from rust-toolchain.toml. Nothing
+      # here is compiled — the checker resolves the graph through cargo
+      # metadata — but the resolution answers on the same compiler the
+      # rest of the gates use. Caching is off so the step below owns
+      # that policy, as in every other job.
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          cache: false
+
+      # Restores everywhere and writes back from `main` alone, matching
+      # the jobs above.
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      # A development machine takes this one from the Brewfile; a
+      # runner takes the release archive, which the action checks
+      # against the SHA256 the release carries before unpacking it. The
+      # version is written down rather than floating, and the marker
+      # comment naming the crate has to sit on the line above the input
+      # it describes for Renovate to read it.
+      - name: Install cargo tools
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        with:
+          # renovate: datasource=crate depName=cargo-deny
+          tool: cargo-deny@0.20.2
+
+      - name: Set up just
+        uses: proofhouse/github-actions/.github/actions/setup-just@131c527df05799916f98d8c4b26eb225dbfc7845 # v0.4.0
+
+      - name: Check the dependency policy
+        run: just audit
 
   test:
     name: "test (${{ matrix.os }})"
