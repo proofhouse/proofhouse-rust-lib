@@ -34,6 +34,7 @@ rumdl
 RUSTDOCFLAGS
 RUSTFLAGS
 sandboxed
+SARIF
 shellcheck
 subexpression
 Swatinem
