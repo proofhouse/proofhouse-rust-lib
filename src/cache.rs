@@ -131,7 +131,9 @@ mod tests {
     use crate::evaluator::Rational;
     use crate::parser::parse;
     use std::panic::{AssertUnwindSafe, catch_unwind};
+    use std::sync::mpsc::{Receiver, Sender, channel};
     use std::thread;
+    use std::time::Duration;
 
     /// Build the tree a text spells out, the cases below all being
     /// texts the parser accepts.
@@ -195,6 +197,54 @@ mod tests {
             let worker = scope.spawn(|| cache.evaluate(&expr));
             let here = cache.evaluate(&expr);
             (worker.join().unwrap(), here)
+        });
+        assert_eq!(answers.0, Ok(Rational::from_integer(42)));
+        assert_eq!(answers.1, answers.0);
+        assert_eq!(cache.evaluations(), 1);
+    }
+
+    /// Claim `key` in `table` and hold the claim until a message
+    /// releases it, which is how the test that follows finds a reader a
+    /// claim to wait on.
+    fn compute_on_cue(
+        table: &ExprCache,
+        key: &Expr,
+        claimed: &Sender<()>,
+        may_finish: &Receiver<()>,
+    ) -> Result<Rational, EvalError> {
+        table.get_or_compute(key, || {
+            claimed.send(()).unwrap();
+            may_finish.recv().unwrap();
+            Ok(Rational::from_integer(42))
+        })
+    }
+
+    #[test]
+    fn a_thread_meeting_a_claimed_key_reads_the_winners_answer() {
+        let cache = ExprCache::new();
+        let expr = tree("20 + 22");
+        let table = &cache;
+        let key = &expr;
+        let (claimed, claim_reached) = channel();
+        let (finish, may_finish) = channel();
+        let (waiting, wait_reached) = channel();
+        let answers = thread::scope(|scope| {
+            let winner = scope.spawn(move || compute_on_cue(table, key, &claimed, &may_finish));
+            claim_reached.recv().unwrap();
+            let reader = scope.spawn(move || {
+                waiting.send(()).unwrap();
+                table.evaluate(key)
+            });
+            // The winner keeps the key claimed until the message below
+            // and the reader speaks up on the line preceding its own
+            // ask. The pause then covers those few instructions rather
+            // than the thread start ahead of them, which leaves the
+            // reader waiting on the cell rather than reading a value
+            // already sitting in it.
+            wait_reached.recv().unwrap();
+            thread::sleep(Duration::from_millis(20));
+            finish.send(()).unwrap();
+            (winner.join().unwrap(), reader.join().unwrap())
         });
         assert_eq!(answers.0, Ok(Rational::from_integer(42)));
         assert_eq!(answers.1, answers.0);
