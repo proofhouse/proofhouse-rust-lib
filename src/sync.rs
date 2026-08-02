@@ -204,13 +204,21 @@ mod tests {
         let shared = &cell;
         let (claimed, claim_reached) = channel();
         let (finish, may_finish) = channel();
+        let (waiting, wait_reached) = channel();
         thread::scope(|scope| {
             scope.spawn(move || publish_on_cue(shared, &claimed, &may_finish));
             claim_reached.recv().unwrap();
-            let waiter = scope.spawn(move || shared.get_or_init(|| 9));
-            // The winner holds the claim until the message below, so
-            // this pause is what puts the second thread in the wait
-            // loop rather than past it on the published value.
+            let waiter = scope.spawn(move || {
+                waiting.send(()).unwrap();
+                shared.get_or_init(|| 9)
+            });
+            // The winner holds the claim until the message below, and
+            // the second thread speaks up on the line before it reaches
+            // the cell. The pause then covers those few instructions
+            // rather than the thread start ahead of them, and the
+            // release finds the second thread in the wait loop rather
+            // than past it on the published value.
+            wait_reached.recv().unwrap();
             thread::sleep(Duration::from_millis(20));
             finish.send(()).unwrap();
             assert_eq!(waiter.join().unwrap(), 7);
