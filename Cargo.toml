@@ -64,6 +64,16 @@ dead_code = "deny"
 missing_docs = "deny"
 unreachable_pub = "deny"
 
+# Nothing in this tree opens an unsafe block, and the concurrency layer
+# is no exception: the one-shot cell moves its state through atomics the
+# standard library hands out as ordinary safe calls, and the
+# interleaving models check the ordering that holds it together. Deny
+# would step aside for an allow attribute written over whichever block
+# wanted one. Forbid turns that attribute down along with the block, so
+# widening the rule costs an edit to this line, where a reviewer meets
+# it.
+unsafe_code = "forbid"
+
 # A `cfg` the build never sets is usually a typo, and the compiler says
 # so for every name it has not been told about. Two names reach the
 # build from outside the sources: the recipe running the interleaving
