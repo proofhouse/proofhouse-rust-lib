@@ -26,7 +26,7 @@ repos:
         types: [yaml]
 
   - repo: https://github.com/vale-cli/vale
-    rev: fe71481c95665a2343d81874489f8b012442a377  # frozen: v3.17.0
+    rev: 405a7dabd73651d8ba24c72767a70c065aa6716a  # frozen: v3.19.0
     hooks:
       # Scope the pre-commit-stage hook to the file types .vale.ini
       # actually configures rules for (Markdown + Rust source;
